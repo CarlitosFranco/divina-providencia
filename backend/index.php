@@ -69,17 +69,10 @@ $segments = explode('/', $path);
 $resource = $segments[0] ?? null;
 $id = $segments[1] ?? null;
 
-// --- Verificar autenticación (excepto para login) ---
-if ($resource !== 'login') {
-    require_once __DIR__ . '/middleware/AuthMiddleware.php';
-    $usuario = Middleware\AuthMiddleware::verificar();
-    $GLOBALS['usuario_actual'] = $usuario;
-}
-
 // --- Enrutamiento con manejo de excepciones ---
 try {
     switch ($resource) {
-        // ========== LOGIN ==========
+        // ========== LOGIN (NO requiere autenticación) ==========
         case 'login':
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                 errorResponse(405, 'Método no permitido. Use POST.');
@@ -95,96 +88,40 @@ try {
             $controller->login();
             break;
 
-        // ========== PACIENTES ==========
+        // ========== RECURSOS PROTEGIDOS ==========
         case 'pacientes':
-            $controllerFile = __DIR__ . '/controladores/PacienteControlador.php';
-            if (!file_exists($controllerFile)) {
-                errorResponse(500, 'Error interno: controlador no encontrado.');
-            }
-
-            require_once $controllerFile;
-            $controller = new Controladores\PacienteControlador();
-            $method = $_SERVER['REQUEST_METHOD'];
-
-            if ($method === 'GET' && !$id) {
-                $controller->listar();
-            } elseif ($method === 'GET' && $id) {
-                $controller->mostrar($id);
-            } elseif ($method === 'POST') {
-                $controller->crear();
-            } elseif ($method === 'PUT' && $id) {
-                $controller->actualizar($id);
-            } elseif ($method === 'DELETE' && $id) {
-                $controller->eliminar($id);
-            } else {
-                errorResponse(405, 'Método no permitido para el recurso pacientes.');
-            }
-            break;
-
-        // ========== PERSONAL ==========
         case 'personal':
-            $controllerFile = __DIR__ . '/controladores/PersonalControlador.php';
-            if (!file_exists($controllerFile)) {
-                errorResponse(500, 'Controlador de personal no encontrado');
-            }
-            require_once $controllerFile;
-            $controller = new Controladores\PersonalControlador();
-            $method = $_SERVER['REQUEST_METHOD'];
-
-            if ($method === 'GET' && !$id) {
-                $controller->listar();
-            } elseif ($method === 'GET' && $id) {
-                $controller->mostrar($id);
-            } elseif ($method === 'POST') {
-                $controller->crear();
-            } elseif ($method === 'PUT' && $id) {
-                $controller->actualizar($id);
-            } elseif ($method === 'DELETE' && $id) {
-                $controller->eliminar($id);
-            } else {
-                errorResponse(405, 'Método no permitido');
-            }
-            break;
-
-        // ========== TURNOS ==========
         case 'turnos':
-            $controllerFile = __DIR__ . '/controladores/TurnoControlador.php';
+        case 'actividades':
+            // Verificar autenticación (todos estos recursos requieren token)
+            require_once __DIR__ . '/middleware/AuthMiddleware.php';
+            $usuario = Middleware\AuthMiddleware::verificar();
+            $GLOBALS['usuario_actual'] = $usuario;
+
+            // Cargar el controlador según el recurso
+            $controllerMap = [
+                'pacientes' => 'PacienteControlador',
+                'personal'  => 'PersonalControlador',
+                'turnos'    => 'TurnoControlador',
+                'actividades' => 'ActividadControlador'
+            ];
+            $controllerClass = $controllerMap[$resource];
+            $controllerFile = __DIR__ . "/controladores/{$controllerClass}.php";
+
             if (!file_exists($controllerFile)) {
-                errorResponse(500, 'Controlador de turnos no encontrado');
+                errorResponse(500, "Controlador no encontrado: {$controllerClass}");
             }
+
             require_once $controllerFile;
-            $controller = new Controladores\TurnoControlador();
+            $fullClassName = "Controladores\\{$controllerClass}";
+            $controller = new $fullClassName();
             $method = $_SERVER['REQUEST_METHOD'];
 
-            if ($method === 'GET' && !$id) {
-                $controller->listar();
-            } elseif ($method === 'GET' && $id && isset($segments[2]) && $segments[2] === 'personal') {
+            // Manejar métodos específicos del recurso (puede haber variaciones como turnos)
+            if ($resource === 'turnos' && $method === 'GET' && isset($segments[2]) && $segments[2] === 'personal') {
                 $personalId = $id;
                 $controller->listarPorPersonal($personalId);
-            } elseif ($method === 'GET' && $id) {
-                $controller->mostrar($id);
-            } elseif ($method === 'POST') {
-                $controller->crear();
-            } elseif ($method === 'PUT' && $id) {
-                $controller->actualizar($id);
-            } elseif ($method === 'DELETE' && $id) {
-                $controller->eliminar($id);
-            } else {
-                errorResponse(405, 'Método no permitido');
-            }
-            break;
-
-        // ========== ACTIVIDADES ==========
-        case 'actividades':
-            $controllerFile = __DIR__ . '/controladores/ActividadControlador.php';
-            if (!file_exists($controllerFile)) {
-                errorResponse(500, 'Controlador de actividades no encontrado');
-            }
-            require_once $controllerFile;
-            $controller = new Controladores\ActividadControlador();
-            $method = $_SERVER['REQUEST_METHOD'];
-
-            if ($method === 'GET' && !$id) {
+            } elseif ($method === 'GET' && !$id) {
                 $controller->listar();
             } elseif ($method === 'GET' && $id) {
                 $controller->mostrar($id);
@@ -195,7 +132,7 @@ try {
             } elseif ($method === 'DELETE' && $id) {
                 $controller->eliminar($id);
             } else {
-                errorResponse(405, 'Método no permitido');
+                errorResponse(405, 'Método no permitido para el recurso ' . $resource);
             }
             break;
 
