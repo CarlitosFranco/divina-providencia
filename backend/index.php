@@ -45,24 +45,34 @@ function errorResponse($code, $message, $details = null) {
     exit;
 }
 
-// --- Extraer la ruta limpia (PATH_INFO o REQUEST_URI) ---
+// --- Extraer la ruta limpia de forma robusta ---
 $path = '';
-if (isset($_SERVER['PATH_INFO'])) {
+// 1. Intentar con PATH_INFO (funciona cuando la URL contiene /index.php/...)
+if (isset($_SERVER['PATH_INFO']) && $_SERVER['PATH_INFO'] !== '') {
     $path = trim($_SERVER['PATH_INFO'], '/');
-} else {
+} 
+// 2. Si no, parsear REQUEST_URI (sin incluir el script)
+elseif (isset($_SERVER['REQUEST_URI'])) {
     $requestUri = $_SERVER['REQUEST_URI'];
-    $scriptName = $_SERVER['SCRIPT_NAME'];
-
-    if (strpos($requestUri, $scriptName) === 0) {
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    // Eliminar el script de la URI si está presente
+    if ($scriptName && strpos($requestUri, $scriptName) === 0) {
         $path = substr($requestUri, strlen($scriptName));
     } else {
+        // Eliminar la parte base (si hay subcarpetas) y cualquier /index.php
         $base = dirname($scriptName);
         $path = str_replace($base, '', $requestUri);
         $path = str_replace('/index.php', '', $path);
     }
-
+    // Quitar query string y barras
     $path = strtok($path, '?');
     $path = trim($path, '/');
+}
+
+// Si aún no hay ruta, intentar parsear la URL completa
+if (empty($path) && isset($_SERVER['REQUEST_URI'])) {
+    $parsed = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $path = trim($parsed ?? '', '/');
 }
 
 $segments = explode('/', $path);
@@ -100,9 +110,9 @@ try {
 
             // Cargar el controlador según el recurso
             $controllerMap = [
-                'pacientes' => 'PacienteControlador',
-                'personal'  => 'PersonalControlador',
-                'turnos'    => 'TurnoControlador',
+                'pacientes'   => 'PacienteControlador',
+                'personal'    => 'PersonalControlador',
+                'turnos'      => 'TurnoControlador',
                 'actividades' => 'ActividadControlador'
             ];
             $controllerClass = $controllerMap[$resource];
