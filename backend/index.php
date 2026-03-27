@@ -12,11 +12,14 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use Dotenv\Dotenv;
 
-// Cargar variables de entorno
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../');
-$dotenv->load();
+// --- Cargar variables de entorno desde .env solo si existe (entorno local) ---
+$envFile = __DIR__ . '/../.env';
+if (file_exists($envFile)) {
+    $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
+    $dotenv->load();
+}
 
-// Exportar variables al entorno (para que getenv() funcione)
+// --- Exportar variables al entorno (para que getenv() funcione) ---
 foreach ($_ENV as $key => $value) {
     putenv("$key=$value");
 }
@@ -50,22 +53,18 @@ if (isset($_SERVER['PATH_INFO'])) {
     $requestUri = $_SERVER['REQUEST_URI'];
     $scriptName = $_SERVER['SCRIPT_NAME'];
 
-    // Eliminar el script de la URI
     if (strpos($requestUri, $scriptName) === 0) {
         $path = substr($requestUri, strlen($scriptName));
     } else {
-        // Fallback: eliminar la parte base
         $base = dirname($scriptName);
         $path = str_replace($base, '', $requestUri);
         $path = str_replace('/index.php', '', $path);
     }
 
-    // Eliminar query string y barras
     $path = strtok($path, '?');
     $path = trim($path, '/');
 }
 
-// Dividir la ruta en segmentos
 $segments = explode('/', $path);
 $resource = $segments[0] ?? null;
 $id = $segments[1] ?? null;
@@ -74,7 +73,6 @@ $id = $segments[1] ?? null;
 if ($resource !== 'login') {
     require_once __DIR__ . '/middleware/AuthMiddleware.php';
     $usuario = Middleware\AuthMiddleware::verificar();
-    // Guardar usuario para uso en controladores
     $GLOBALS['usuario_actual'] = $usuario;
 }
 
@@ -108,33 +106,22 @@ try {
             $controller = new Controladores\PacienteControlador();
             $method = $_SERVER['REQUEST_METHOD'];
 
-            // GET sin ID -> listar todos
             if ($method === 'GET' && !$id) {
                 $controller->listar();
-            }
-            // GET con ID -> mostrar uno
-            elseif ($method === 'GET' && $id) {
+            } elseif ($method === 'GET' && $id) {
                 $controller->mostrar($id);
-            }
-            // POST -> crear
-            elseif ($method === 'POST') {
+            } elseif ($method === 'POST') {
                 $controller->crear();
-            }
-            // PUT con ID -> actualizar
-            elseif ($method === 'PUT' && $id) {
+            } elseif ($method === 'PUT' && $id) {
                 $controller->actualizar($id);
-            }
-            // DELETE con ID -> eliminar
-            elseif ($method === 'DELETE' && $id) {
+            } elseif ($method === 'DELETE' && $id) {
                 $controller->eliminar($id);
-            }
-            // Método no soportado para este recurso
-            else {
+            } else {
                 errorResponse(405, 'Método no permitido para el recurso pacientes.');
             }
             break;
 
-        // ========== RECURSOS FUTUROS ==========
+        // ========== PERSONAL ==========
         case 'personal':
             $controllerFile = __DIR__ . '/controladores/PersonalControlador.php';
             if (!file_exists($controllerFile)) {
@@ -159,6 +146,7 @@ try {
             }
             break;
 
+        // ========== TURNOS ==========
         case 'turnos':
             $controllerFile = __DIR__ . '/controladores/TurnoControlador.php';
             if (!file_exists($controllerFile)) {
@@ -171,7 +159,6 @@ try {
             if ($method === 'GET' && !$id) {
                 $controller->listar();
             } elseif ($method === 'GET' && $id && isset($segments[2]) && $segments[2] === 'personal') {
-                // Ruta: /turnos/personal/{personal_id}
                 $personalId = $id;
                 $controller->listarPorPersonal($personalId);
             } elseif ($method === 'GET' && $id) {
@@ -187,6 +174,7 @@ try {
             }
             break;
 
+        // ========== ACTIVIDADES ==========
         case 'actividades':
             $controllerFile = __DIR__ . '/controladores/ActividadControlador.php';
             if (!file_exists($controllerFile)) {
@@ -216,6 +204,5 @@ try {
             break;
     }
 } catch (Exception $e) {
-    // Capturar cualquier excepción no manejada
     errorResponse(500, 'Error interno del servidor', $e->getMessage());
 }
