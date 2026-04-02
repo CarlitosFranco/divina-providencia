@@ -1,43 +1,44 @@
 <template>
   <div class="container">
     <div class="page-header">
-      <h1>Actividades del Personal</h1>
-      <button @click="abrirFormulario()" class="btn-primary">+ Nueva Actividad</button>
+      <h1>Citas Médicas</h1>
+      <button @click="abrirFormulario()" class="btn-primary">+ Nueva Cita</button>
     </div>
 
     <div v-if="cargando" class="loading-state">
       <div class="spinner"></div>
-      <p>Cargando actividades...</p>
+      <p>Cargando citas...</p>
     </div>
     <div v-else-if="error" class="error-state">
       <p>❌ {{ errorMessage }}</p>
-      <button @click="cargarActividades" class="btn-retry">Reintentar</button>
+      <button @click="cargarCitas" class="btn-retry">Reintentar</button>
     </div>
-    <div v-else-if="actividades.length === 0" class="empty-state">
-      <p>📭 No hay actividades registradas.</p>
-      <button @click="abrirFormulario()" class="btn-primary">Registrar la primera</button>
+    <div v-else-if="citas.length === 0" class="empty-state">
+      <p>📭 No hay citas programadas.</p>
+      <button @click="abrirFormulario()" class="btn-primary">Agendar la primera</button>
     </div>
     <div v-else class="cards-grid">
-      <div v-for="act in actividades" :key="act.id" class="actividad-card">
+      <div v-for="cita in citas" :key="cita.id" class="cita-card">
         <div class="card-header">
-          <h3>{{ act.personal_nombres }} {{ act.personal_apellidos }}</h3>
-          <span class="fecha">{{ formatFecha(act.fecha) }}</span>
+          <h3>{{ cita.paciente_nombres }} {{ cita.paciente_apellidos }}</h3>
+          <span :class="['estado-badge', cita.estado.toLowerCase()]">{{ cita.estado }}</span>
         </div>
         <div class="card-body">
-          <p><strong>Paciente:</strong> {{ act.paciente_nombres }} {{ act.paciente_apellidos }}</p>
-          <p><strong>Tipo:</strong> {{ act.tipo_actividad || 'No especificado' }}</p>
-          <p><strong>Descripción:</strong> {{ act.descripcion }}</p>
+          <p><strong>Personal:</strong> {{ cita.personal_nombres }} {{ cita.personal_apellidos }}</p>
+          <p><strong>Fecha:</strong> {{ formatFecha(cita.fecha) }} a las {{ cita.hora }}</p>
+          <p><strong>Motivo:</strong> {{ cita.motivo || 'No especificado' }}</p>
+          <p v-if="cita.observaciones"><strong>Observaciones:</strong> {{ cita.observaciones }}</p>
         </div>
         <div class="card-actions">
-          <button @click="editar(act)" class="btn-edit">Editar</button>
-          <button @click="confirmarEliminar(act.id)" class="btn-delete">Eliminar</button>
+          <button @click="editar(cita)" class="btn-edit">Editar</button>
+          <button @click="confirmarEliminar(cita.id)" class="btn-delete">Eliminar</button>
         </div>
       </div>
     </div>
 
-    <ActividadForm
+    <CitaForm
       :show="mostrarForm"
-      :actividad="actividadSeleccionada"
+      :cita="citaSeleccionada"
       :isEditing="modoEdicion"
       @close="cerrarFormulario"
       @saved="recargarLista"
@@ -48,26 +49,26 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import ActividadForm from '@/components/ActividadForm.vue'
+import CitaForm from '@/components/CitaForm.vue'
 import Swal from 'sweetalert2'
 
-const actividades = ref([])
+const citas = ref([])
 const cargando = ref(true)
 const error = ref(false)
 const errorMessage = ref('')
 const mostrarForm = ref(false)
-const actividadSeleccionada = ref(null)
+const citaSeleccionada = ref(null)
 const modoEdicion = ref(false)
 
 onMounted(() => {
-  cargarActividades()
+  cargarCitas()
 })
 
-const cargarActividades = async () => {
+const cargarCitas = async () => {
   cargando.value = true
   try {
-    const response = await axios.get('/api/actividades')
-    actividades.value = response.data
+    const response = await axios.get('/api/citas')
+    citas.value = response.data
     error.value = false
   } catch (err) {
     error.value = true
@@ -84,24 +85,24 @@ const formatFecha = (fecha) => {
 }
 
 const abrirFormulario = () => {
-  actividadSeleccionada.value = null
+  citaSeleccionada.value = null
   modoEdicion.value = false
   mostrarForm.value = true
 }
 
-const editar = (act) => {
-  actividadSeleccionada.value = { ...act }
+const editar = (cita) => {
+  citaSeleccionada.value = { ...cita }
   modoEdicion.value = true
   mostrarForm.value = true
 }
 
 const cerrarFormulario = () => {
   mostrarForm.value = false
-  actividadSeleccionada.value = null
+  citaSeleccionada.value = null
 }
 
 const recargarLista = () => {
-  cargarActividades()
+  cargarCitas()
 }
 
 const confirmarEliminar = (id) => {
@@ -115,12 +116,12 @@ const confirmarEliminar = (id) => {
   }).then(async (result) => {
     if (result.isConfirmed) {
       try {
-        await axios.delete(`/api/actividades/${id}`)
-        Swal.fire('Eliminado', 'La actividad ha sido eliminada', 'success')
-        cargarActividades()
+        await axios.delete(`/api/citas/${id}`)
+        Swal.fire('Eliminado', 'La cita ha sido eliminada', 'success')
+        cargarCitas()
       } catch (error) {
         console.error('Error al eliminar:', error)
-        Swal.fire('Error', error.response?.data?.error || 'No se pudo eliminar la actividad', 'error')
+        Swal.fire('Error', error.response?.data?.error || 'No se pudo eliminar la cita', 'error')
       }
     }
   })
@@ -162,7 +163,7 @@ h1 {
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 20px;
 }
-.actividad-card {
+.cita-card {
   background: white;
   border-radius: 20px;
   padding: 20px;
@@ -170,7 +171,7 @@ h1 {
   transition: all 0.2s;
   border: 1px solid #e2e8f0;
 }
-.actividad-card:hover {
+.cita-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 24px -12px rgba(0,0,0,0.15);
 }
@@ -184,13 +185,16 @@ h1 {
   font-size: 1.2rem;
   color: #1e293b;
 }
-.fecha {
-  background: #f1f5f9;
+.estado-badge {
   padding: 4px 10px;
   border-radius: 40px;
   font-size: 0.7rem;
-  color: #475569;
+  font-weight: 600;
 }
+.estado-badge.programada { background: #fff3e3; color: #b45309; }
+.estado-badge.confirmada { background: #e0e7ff; color: #4338ca; }
+.estado-badge.atendida { background: #dcfce7; color: #15803d; }
+.estado-badge.cancelada { background: #fee2e2; color: #b91c1c; }
 .card-body {
   margin: 16px 0;
   font-size: 0.85rem;

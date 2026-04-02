@@ -4,7 +4,9 @@ import LoginView from '../views/LoginView.vue'
 import PersonalView from '../views/PersonalView.vue'
 import NotFoundView from '../views/NotFoundView.vue'
 import TurnosView from '../views/TurnosView.vue'
-import ActividadesView from '../views/ActividadesView.vue'   // <-- Nueva importación
+import ActividadesView from '../views/ActividadesView.vue'
+import CitasView from '../views/CitasView.vue'
+import PatientDetailsView from '../views/PatientDetailsView.vue'   // Ruta corregida y nombre correcto
 
 const routes = [
   {
@@ -32,9 +34,21 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/actividades',                // <-- Nueva ruta
+    path: '/actividades',
     name: 'actividades',
     component: ActividadesView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/citas',
+    name: 'citas',
+    component: CitasView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/pacientes/:id',
+    name: 'patient-details',
+    component: PatientDetailsView,
     meta: { requiresAuth: true }
   },
   {

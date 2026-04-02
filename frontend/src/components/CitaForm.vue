@@ -2,92 +2,58 @@
   <div class="modal-overlay" v-if="show" @click.self="cerrar">
     <div class="modal-container">
       <div class="modal-header">
-        <h2>{{ isEditing ? '✏️ Editar Paciente' : '➕ Nuevo Paciente' }}</h2>
+        <h2>{{ isEditing ? '✏️ Editar Cita' : '➕ Nueva Cita' }}</h2>
         <button class="btn-close" @click="cerrar">✕</button>
       </div>
 
       <form @submit.prevent="guardar" class="modal-form">
         <div class="form-row">
           <div class="form-group">
-            <label>Nombres *</label>
-            <input v-model="form.nombres" type="text" required />
-            <span v-if="errors.nombres" class="error-text">{{ errors.nombres }}</span>
-          </div>
-          <div class="form-group">
-            <label>Apellidos *</label>
-            <input v-model="form.apellidos" type="text" required />
-            <span v-if="errors.apellidos" class="error-text">{{ errors.apellidos }}</span>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Fecha de Nacimiento *</label>
-            <input type="date" v-model="form.fecha_nacimiento" required />
-          </div>
-          <div class="form-group">
-            <label>Género</label>
-            <select v-model="form.genero">
-              <option>M</option>
-              <option>F</option>
-              <option>Otro</option>
+            <label>Paciente *</label>
+            <select v-model="form.paciente_id" required>
+              <option v-for="p in pacientes" :key="p.id" :value="p.id">
+                {{ p.nombres }} {{ p.apellidos }}
+              </option>
             </select>
+            <span v-if="errors.paciente_id" class="error-text">{{ errors.paciente_id }}</span>
+          </div>
+          <div class="form-group">
+            <label>Personal (Médico/Enfermero) *</label>
+            <select v-model="form.personal_id" required>
+              <option v-for="p in personal" :key="p.id" :value="p.id">
+                {{ p.nombres }} {{ p.apellidos }} - {{ p.cargo }}
+              </option>
+            </select>
+            <span v-if="errors.personal_id" class="error-text">{{ errors.personal_id }}</span>
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label>Documento</label>
-            <input v-model="form.documento_identidad" />
+            <label>Fecha *</label>
+            <input type="date" v-model="form.fecha" required />
+            <span v-if="errors.fecha" class="error-text">{{ errors.fecha }}</span>
           </div>
           <div class="form-group">
-            <label>Teléfono</label>
-            <input v-model="form.telefono" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Celular</label>
-            <input v-model="form.celular" />
-          </div>
-          <div class="form-group">
-            <label>Email</label>
-            <input type="email" v-model="form.email" />
-            <span v-if="errors.email" class="error-text">{{ errors.email }}</span>
+            <label>Hora *</label>
+            <input type="time" v-model="form.hora" required />
+            <span v-if="errors.hora" class="error-text">{{ errors.hora }}</span>
           </div>
         </div>
 
         <div class="form-group">
-          <label>Dirección</label>
-          <textarea v-model="form.direccion" rows="2"></textarea>
+          <label>Motivo</label>
+          <textarea v-model="form.motivo" rows="2"></textarea>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label>Contacto Emergencia (Nombre)</label>
-            <input v-model="form.contacto_emergencia_nombre" />
-          </div>
-          <div class="form-group">
-            <label>Contacto Emergencia (Teléfono)</label>
-            <input v-model="form.contacto_emergencia_telefono" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Fecha de Ingreso</label>
-            <input type="date" v-model="form.fecha_ingreso" />
-          </div>
-          <div class="form-group">
-            <label>Estado</label>
-            <select v-model="form.estado">
-              <option>Activo</option>
-              <option>Inactivo</option>
-              <option>Trasladado</option>
-              <option>Fallecido</option>
-            </select>
-          </div>
+        <div class="form-group">
+          <label>Estado</label>
+          <select v-model="form.estado">
+            <option>Programada</option>
+            <option>Confirmada</option>
+            <option>Atendida</option>
+            <option>Cancelada</option>
+          </select>
         </div>
 
         <div class="form-group">
@@ -108,58 +74,68 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import axios from 'axios'
 
 const props = defineProps({
   show: Boolean,
-  paciente: Object,
+  cita: Object,
   isEditing: Boolean
 })
 
 const emit = defineEmits(['close', 'saved'])
 
 const form = ref({
-  nombres: '',
-  apellidos: '',
-  fecha_nacimiento: '',
-  genero: 'M',
-  documento_identidad: '',
-  telefono: '',
-  celular: '',
-  email: '',
-  direccion: '',
-  contacto_emergencia_nombre: '',
-  contacto_emergencia_telefono: '',
-  fecha_ingreso: new Date().toISOString().slice(0,10),
-  estado: 'Activo',
+  paciente_id: '',
+  personal_id: '',
+  fecha: new Date().toISOString().slice(0,10),
+  hora: '',
+  motivo: '',
+  estado: 'Programada',
   observaciones: ''
 })
 
+const pacientes = ref([])
+const personal = ref([])
 const errors = ref({})
 const cargando = ref(false)
 
+const cargarPacientes = async () => {
+  try {
+    const res = await axios.get('/api/pacientes')
+    pacientes.value = res.data
+  } catch (err) {
+    console.error('Error al cargar pacientes:', err)
+  }
+}
+const cargarPersonal = async () => {
+  try {
+    const res = await axios.get('/api/personal')
+    personal.value = res.data
+  } catch (err) {
+    console.error('Error al cargar personal:', err)
+  }
+}
+
+onMounted(() => {
+  cargarPacientes()
+  cargarPersonal()
+})
+
 const resetForm = () => {
   form.value = {
-    nombres: '',
-    apellidos: '',
-    fecha_nacimiento: '',
-    genero: 'M',
-    documento_identidad: '',
-    telefono: '',
-    celular: '',
-    email: '',
-    direccion: '',
-    contacto_emergencia_nombre: '',
-    contacto_emergencia_telefono: '',
-    fecha_ingreso: new Date().toISOString().slice(0,10),
-    estado: 'Activo',
+    paciente_id: '',
+    personal_id: '',
+    fecha: new Date().toISOString().slice(0,10),
+    hora: '',
+    motivo: '',
+    estado: 'Programada',
     observaciones: ''
   }
   errors.value = {}
 }
 
-watch(() => props.paciente, (newVal) => {
+watch(() => props.cita, (newVal) => {
   if (newVal) {
     form.value = { ...newVal }
   } else {
@@ -169,12 +145,10 @@ watch(() => props.paciente, (newVal) => {
 
 const validar = () => {
   const newErrors = {}
-  if (!form.value.nombres) newErrors.nombres = 'Los nombres son obligatorios'
-  if (!form.value.apellidos) newErrors.apellidos = 'Los apellidos son obligatorios'
-  if (!form.value.fecha_nacimiento) newErrors.fecha_nacimiento = 'La fecha de nacimiento es obligatoria'
-  if (form.value.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.value.email)) {
-    newErrors.email = 'Email no válido'
-  }
+  if (!form.value.paciente_id) newErrors.paciente_id = 'Debe seleccionar un paciente'
+  if (!form.value.personal_id) newErrors.personal_id = 'Debe seleccionar un personal'
+  if (!form.value.fecha) newErrors.fecha = 'La fecha es obligatoria'
+  if (!form.value.hora) newErrors.hora = 'La hora es obligatoria'
   errors.value = newErrors
   return Object.keys(newErrors).length === 0
 }
@@ -184,15 +158,15 @@ const guardar = async () => {
   cargando.value = true
   try {
     if (props.isEditing) {
-      await axios.put(`/api/pacientes/${form.value.id}`, form.value)
+      await axios.put(`/api/citas/${form.value.id}`, form.value)
     } else {
-      await axios.post('/api/pacientes', form.value)
+      await axios.post('/api/citas', form.value)
     }
     emit('saved')
     cerrar()
   } catch (error) {
     console.error('Error al guardar:', error)
-    alert(error.response?.data?.error || 'Error al guardar el paciente')
+    alert(error.response?.data?.error || 'Error al guardar la cita')
   } finally {
     cargando.value = false
   }
