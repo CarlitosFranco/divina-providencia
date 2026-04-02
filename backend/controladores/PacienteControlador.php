@@ -86,4 +86,36 @@ class PacienteControlador {
             echo json_encode(['error' => 'Error al eliminar paciente']);
         }
     }
+    public function obtenerCompleto($id) {
+        $paciente = $this->pacienteModel->obtenerPorId($id);
+        if (!$paciente) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Paciente no encontrado']);
+            return;
+        }
+
+        // Obtener historial médico
+        $historial = $this->pacienteModel->obtenerHistorialMedico($id);
+
+        // Obtener tratamientos con medicamentos
+        $tratamientos = $this->pacienteModel->obtenerTratamientos($id);
+
+        // Obtener citas
+        $citas = $this->pacienteModel->obtenerCitas($id);
+
+        // Obtener evoluciones (controles)
+        $evoluciones = $this->pacienteModel->obtenerEvoluciones($id);
+
+        // Obtener actividades realizadas por personal
+        $actividades = $this->pacienteModel->obtenerActividades($id);
+
+        echo json_encode([
+            'paciente' => $paciente,
+            'historial' => $historial,
+            'tratamientos' => $tratamientos,
+            'citas' => $citas,
+            'evoluciones' => $evoluciones,
+            'actividades' => $actividades
+        ]);
+    }
 }

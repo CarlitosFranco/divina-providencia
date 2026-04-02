@@ -102,4 +102,59 @@ public function eliminar($id) {
     $stmt->bindParam(':id', $id);
     return $stmt->execute();
 }
+public function obtenerHistorialMedico($pacienteId) {
+    $query = "SELECT * FROM historial_medico WHERE paciente_id = :paciente_id";
+    $stmt = $this->db->prepare($query);
+    $stmt->bindParam(':paciente_id', $pacienteId);
+    $stmt->execute();
+    return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+}
+
+public function obtenerTratamientos($pacienteId) {
+    $query = "SELECT t.*, m.nombre_comercial, m.principio_activo 
+              FROM tratamientos t 
+              JOIN medicamentos m ON t.medicamento_id = m.id 
+              WHERE t.paciente_id = :paciente_id 
+              ORDER BY t.fecha_inicio DESC";
+    $stmt = $this->db->prepare($query);
+    $stmt->bindParam(':paciente_id', $pacienteId);
+    $stmt->execute();
+    return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+}
+
+public function obtenerCitas($pacienteId) {
+    $query = "SELECT c.*, p.nombres as personal_nombres, p.apellidos as personal_apellidos 
+              FROM citas c 
+              JOIN personal p ON c.personal_id = p.id 
+              WHERE c.paciente_id = :paciente_id 
+              ORDER BY c.fecha DESC, c.hora DESC";
+    $stmt = $this->db->prepare($query);
+    $stmt->bindParam(':paciente_id', $pacienteId);
+    $stmt->execute();
+    return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+}
+
+public function obtenerEvoluciones($pacienteId) {
+    $query = "SELECT e.*, p.nombres as personal_nombres, p.apellidos as personal_apellidos 
+              FROM evoluciones e 
+              JOIN personal p ON e.personal_id = p.id 
+              WHERE e.paciente_id = :paciente_id 
+              ORDER BY e.fecha DESC";
+    $stmt = $this->db->prepare($query);
+    $stmt->bindParam(':paciente_id', $pacienteId);
+    $stmt->execute();
+    return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+}
+
+public function obtenerActividades($pacienteId) {
+    $query = "SELECT a.*, p.nombres as personal_nombres, p.apellidos as personal_apellidos 
+              FROM actividades_personal a 
+              JOIN personal p ON a.personal_id = p.id 
+              WHERE a.paciente_id = :paciente_id 
+              ORDER BY a.fecha DESC";
+    $stmt = $this->db->prepare($query);
+    $stmt->bindParam(':paciente_id', $pacienteId);
+    $stmt->execute();
+    return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+}
 }

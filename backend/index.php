@@ -47,29 +47,22 @@ function errorResponse($code, $message, $details = null) {
 
 // --- Extraer la ruta limpia de forma robusta ---
 $path = '';
-// 1. Intentar con PATH_INFO (funciona cuando la URL contiene /index.php/...)
 if (isset($_SERVER['PATH_INFO']) && $_SERVER['PATH_INFO'] !== '') {
     $path = trim($_SERVER['PATH_INFO'], '/');
-} 
-// 2. Si no, parsear REQUEST_URI (sin incluir el script)
-elseif (isset($_SERVER['REQUEST_URI'])) {
+} elseif (isset($_SERVER['REQUEST_URI'])) {
     $requestUri = $_SERVER['REQUEST_URI'];
     $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-    // Eliminar el script de la URI si está presente
     if ($scriptName && strpos($requestUri, $scriptName) === 0) {
         $path = substr($requestUri, strlen($scriptName));
     } else {
-        // Eliminar la parte base (si hay subcarpetas) y cualquier /index.php
         $base = dirname($scriptName);
         $path = str_replace($base, '', $requestUri);
         $path = str_replace('/index.php', '', $path);
     }
-    // Quitar query string y barras
     $path = strtok($path, '?');
     $path = trim($path, '/');
 }
 
-// Si aún no hay ruta, intentar parsear la URL completa
 if (empty($path) && isset($_SERVER['REQUEST_URI'])) {
     $parsed = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $path = trim($parsed ?? '', '/');
@@ -78,60 +71,63 @@ if (empty($path) && isset($_SERVER['REQUEST_URI'])) {
 $segments = explode('/', $path);
 $resource = $segments[0] ?? null;
 $id = $segments[1] ?? null;
+$method = $_SERVER['REQUEST_METHOD']; // Definimos $method aquí, antes de usarlo
 
 // --- Enrutamiento con manejo de excepciones ---
 try {
     switch ($resource) {
         // ========== LOGIN (NO requiere autenticación) ==========
         case 'login':
-            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            if ($method !== 'POST') {
                 errorResponse(405, 'Método no permitido. Use POST.');
             }
-
             $controllerFile = __DIR__ . '/controladores/AuthControlador.php';
-            if (!file_exists($controllerFile)) {
-                errorResponse(500, 'Error interno: controlador no encontrado.');
-            }
-
+            if (!file_exists($controllerFile)) errorResponse(500, 'Controlador de autenticación no encontrado.');
             require_once $controllerFile;
             $controller = new Controladores\AuthControlador();
             $controller->login();
             break;
 
-        // ========== RECURSOS PROTEGIDOS ==========
+        // ========== RECURSOS PROTEGIDOS (requieren autenticación) ==========
         case 'pacientes':
         case 'personal':
         case 'turnos':
         case 'actividades':
-            // Verificar autenticación (todos estos recursos requieren token)
+        case 'citas':
+            // Verificar autenticación
             require_once __DIR__ . '/middleware/AuthMiddleware.php';
             $usuario = Middleware\AuthMiddleware::verificar();
             $GLOBALS['usuario_actual'] = $usuario;
 
-            // Cargar el controlador según el recurso
+            // Mapeo de recursos a controladores
             $controllerMap = [
                 'pacientes'   => 'PacienteControlador',
                 'personal'    => 'PersonalControlador',
                 'turnos'      => 'TurnoControlador',
-                'actividades' => 'ActividadControlador'
+                'actividades' => 'ActividadControlador',
+                'citas'       => 'CitaControlador'
             ];
             $controllerClass = $controllerMap[$resource];
             $controllerFile = __DIR__ . "/controladores/{$controllerClass}.php";
-
-            if (!file_exists($controllerFile)) {
-                errorResponse(500, "Controlador no encontrado: {$controllerClass}");
-            }
-
+            if (!file_exists($controllerFile)) errorResponse(500, "Controlador no encontrado: {$controllerClass}");
             require_once $controllerFile;
             $fullClassName = "Controladores\\{$controllerClass}";
             $controller = new $fullClassName();
-            $method = $_SERVER['REQUEST_METHOD'];
 
-            // Manejar métodos específicos del recurso (puede haber variaciones como turnos)
-            if ($resource === 'turnos' && $method === 'GET' && isset($segments[2]) && $segments[2] === 'personal') {
+            // --- Lógica especial para pacientes: ruta /pacientes/{id}/completo
+            if ($resource === 'pacientes' && $method === 'GET' && $id && isset($segments[2]) && $segments[2] === 'completo') {
+                if (!method_exists($controller, 'obtenerCompleto')) {
+                    errorResponse(501, 'Método obtenerCompleto no implementado en el controlador');
+                }
+                $controller->obtenerCompleto($id);
+            }
+            // --- Lógica especial para turnos: ruta /turnos/personal/{id}
+            elseif ($resource === 'turnos' && $method === 'GET' && isset($segments[2]) && $segments[2] === 'personal') {
                 $personalId = $id;
                 $controller->listarPorPersonal($personalId);
-            } elseif ($method === 'GET' && !$id) {
+            }
+            // --- CRUD estándar para todos los recursos
+            elseif ($method === 'GET' && !$id) {
                 $controller->listar();
             } elseif ($method === 'GET' && $id) {
                 $controller->mostrar($id);
