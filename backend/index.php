@@ -1,42 +1,32 @@
 <?php
-// ==================================================
-// API REST para Casa de Reposo Divina Providencia
-// ==================================================
-
-// --- Configuración de errores (deshabilitar en producción) ---
 ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// --- Cargar autoload y dependencias ---
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Dotenv\Dotenv;
 
-// --- Cargar variables de entorno desde .env solo si existe (entorno local) ---
-$envFile = __DIR__ . '/../.env';
-if (file_exists($envFile)) {
+if (file_exists(__DIR__ . '/../.env')) {
     $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
     $dotenv->load();
 }
 
-// --- Exportar variables al entorno (para que getenv() funcione) ---
-foreach ($_ENV as $key => $value) {
-    putenv("$key=$value");
+// ========== DEFINIR CLAVE JWT (UNIFICADA) ==========
+if (!defined('JWT_SECRET')) {
+    define('JWT_SECRET', 'tu_clave_super_secreta_y_larga_de_al_menos_32_caracteres_123456');
 }
 
-// --- Configuración CORS ---
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Content-Type: application/json; charset=UTF-8");
 
-// Manejar preflight (OPTIONS)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
-// --- Función para respuestas de error estandarizadas ---
 function errorResponse($code, $message, $details = null) {
     http_response_code($code);
     $response = ['error' => $message];
@@ -45,107 +35,102 @@ function errorResponse($code, $message, $details = null) {
     exit;
 }
 
-// --- Extraer la ruta limpia de forma robusta ---
-$path = '';
-if (isset($_SERVER['PATH_INFO']) && $_SERVER['PATH_INFO'] !== '') {
-    $path = trim($_SERVER['PATH_INFO'], '/');
-} elseif (isset($_SERVER['REQUEST_URI'])) {
-    $requestUri = $_SERVER['REQUEST_URI'];
-    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-    if ($scriptName && strpos($requestUri, $scriptName) === 0) {
-        $path = substr($requestUri, strlen($scriptName));
-    } else {
-        $base = dirname($scriptName);
-        $path = str_replace($base, '', $requestUri);
-        $path = str_replace('/index.php', '', $path);
-    }
-    $path = strtok($path, '?');
-    $path = trim($path, '/');
-}
-
-if (empty($path) && isset($_SERVER['REQUEST_URI'])) {
-    $parsed = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    $path = trim($parsed ?? '', '/');
-}
+// --- Extraer ruta de forma simple ---
+$request_uri = $_SERVER['REQUEST_URI'];
+$script_name = $_SERVER['SCRIPT_NAME'];
+$path = str_replace($script_name, '', $request_uri);
+$path = strtok($path, '?');
+$path = trim($path, '/');
+$path = preg_replace('#^(divina-providencia/)?backend/#', '', $path);
 
 $segments = explode('/', $path);
-$resource = $segments[0] ?? null;
+$resource = $segments[0] ?? '';
 $id = $segments[1] ?? null;
-$method = $_SERVER['REQUEST_METHOD']; // Definimos $method aquí, antes de usarlo
+$method = $_SERVER['REQUEST_METHOD'];
 
-// --- Enrutamiento con manejo de excepciones ---
+error_log("=== DEBUG === Resource: '$resource', Method: $method, Path: $path");
+
 try {
-    switch ($resource) {
-        // ========== LOGIN (NO requiere autenticación) ==========
-        case 'login':
-            if ($method !== 'POST') {
-                errorResponse(405, 'Método no permitido. Use POST.');
-            }
-            $controllerFile = __DIR__ . '/controladores/AuthControlador.php';
-            if (!file_exists($controllerFile)) errorResponse(500, 'Controlador de autenticación no encontrado.');
-            require_once $controllerFile;
-            $controller = new Controladores\AuthControlador();
-            $controller->login();
-            break;
+    // Mapeo de recursos a controladores
+    $controllerMap = [
+        'login'      => 'AuthControlador',
+        'pacientes'  => 'PacienteControlador',
+        'personal'   => 'PersonalControlador',
+        'turnos'     => 'TurnoControlador',
+        'actividades'=> 'ActividadControlador',
+        'citas'      => 'CitaControlador',
+        'historial'  => 'HistorialControlador',
+        'roles'      => 'RolControlador',
+        'usuarios'   => 'UsuarioControlador'
+    ];
 
-        // ========== RECURSOS PROTEGIDOS (requieren autenticación) ==========
-        case 'pacientes':
-        case 'personal':
-        case 'turnos':
-        case 'actividades':
-        case 'citas':
-            // Verificar autenticación
-            require_once __DIR__ . '/middleware/AuthMiddleware.php';
-            $usuario = Middleware\AuthMiddleware::verificar();
-            $GLOBALS['usuario_actual'] = $usuario;
-
-            // Mapeo de recursos a controladores
-            $controllerMap = [
-                'pacientes'   => 'PacienteControlador',
-                'personal'    => 'PersonalControlador',
-                'turnos'      => 'TurnoControlador',
-                'actividades' => 'ActividadControlador',
-                'citas'       => 'CitaControlador'
-            ];
-            $controllerClass = $controllerMap[$resource];
-            $controllerFile = __DIR__ . "/controladores/{$controllerClass}.php";
-            if (!file_exists($controllerFile)) errorResponse(500, "Controlador no encontrado: {$controllerClass}");
-            require_once $controllerFile;
-            $fullClassName = "Controladores\\{$controllerClass}";
-            $controller = new $fullClassName();
-
-            // --- Lógica especial para pacientes: ruta /pacientes/{id}/completo
-            if ($resource === 'pacientes' && $method === 'GET' && $id && isset($segments[2]) && $segments[2] === 'completo') {
-                if (!method_exists($controller, 'obtenerCompleto')) {
-                    errorResponse(501, 'Método obtenerCompleto no implementado en el controlador');
-                }
-                $controller->obtenerCompleto($id);
-            }
-            // --- Lógica especial para turnos: ruta /turnos/personal/{id}
-            elseif ($resource === 'turnos' && $method === 'GET' && isset($segments[2]) && $segments[2] === 'personal') {
-                $personalId = $id;
-                $controller->listarPorPersonal($personalId);
-            }
-            // --- CRUD estándar para todos los recursos
-            elseif ($method === 'GET' && !$id) {
-                $controller->listar();
-            } elseif ($method === 'GET' && $id) {
-                $controller->mostrar($id);
-            } elseif ($method === 'POST') {
-                $controller->crear();
-            } elseif ($method === 'PUT' && $id) {
-                $controller->actualizar($id);
-            } elseif ($method === 'DELETE' && $id) {
-                $controller->eliminar($id);
-            } else {
-                errorResponse(405, 'Método no permitido para el recurso ' . $resource);
-            }
-            break;
-
-        default:
-            errorResponse(404, 'Recurso no encontrado', ['path' => $path, 'resource' => $resource]);
-            break;
+    if (!isset($controllerMap[$resource])) {
+        errorResponse(404, 'Recurso no encontrado', ['resource' => $resource, 'path' => $path]);
     }
-} catch (Exception $e) {
+
+    $controllerClass = $controllerMap[$resource];
+    $controllerFile = __DIR__ . "/controladores/{$controllerClass}.php";
+    if (!file_exists($controllerFile)) {
+        errorResponse(500, "Controlador no encontrado: $controllerClass");
+    }
+    require_once $controllerFile;
+    $fullClassName = "Controladores\\$controllerClass";
+    $controller = new $fullClassName();
+
+    // ========== LOGIN (NO requiere autenticación) ==========
+    if ($resource === 'login') {
+        if ($method !== 'POST') errorResponse(405, 'Método no permitido. Use POST.');
+        $controller->login();
+        exit;
+    }
+
+    // ========== RECURSOS PROTEGIDOS ==========
+    require_once __DIR__ . '/middleware/AuthMiddleware.php';
+    $usuario = Middleware\AuthMiddleware::verificar();
+
+    // ========== RUTAS ESPECIALES ==========
+    if ($resource === 'pacientes' && $method === 'GET' && isset($segments[2]) && $segments[2] === 'completo') {
+        $controller->obtenerCompleto($id);
+    }
+    elseif ($resource === 'turnos' && $method === 'GET' && isset($segments[1]) && $segments[1] === 'personal') {
+        $personalId = $segments[2] ?? null;
+        if (!$personalId) errorResponse(400, 'ID de personal requerido');
+        $controller->listarPorPersonal($personalId);
+    }
+    // ========== USUARIOS (solo admin) ==========
+    elseif ($resource === 'usuarios') {
+        if ($usuario['rol_id'] != 1) {
+            errorResponse(403, 'No tienes permiso para acceder a usuarios');
+        }
+        if ($method === 'GET' && !$id) $controller->listar();
+        elseif ($method === 'GET' && $id) $controller->mostrar($id);
+        elseif ($method === 'POST') $controller->crear();
+        elseif ($method === 'PUT' && $id) $controller->actualizar($id);
+        elseif ($method === 'DELETE' && $id) $controller->eliminar($id);
+        else errorResponse(405, 'Método no permitido para usuarios');
+    }
+    // ========== CRUD ESTÁNDAR ==========
+    else {
+        switch ($method) {
+            case 'GET':
+                if ($id) $controller->mostrar($id);
+                else $controller->listar();
+                break;
+            case 'POST':
+                $controller->crear();
+                break;
+            case 'PUT':
+                if ($id) $controller->actualizar($id);
+                else errorResponse(400, 'ID requerido para PUT');
+                break;
+            case 'DELETE':
+                if ($id) $controller->eliminar($id);
+                else errorResponse(400, 'ID requerido para DELETE');
+                break;
+            default:
+                errorResponse(405, 'Método no permitido');
+        }
+    }
+} catch (Throwable $e) {
     errorResponse(500, 'Error interno del servidor', $e->getMessage());
 }

@@ -6,7 +6,8 @@ import NotFoundView from '../views/NotFoundView.vue'
 import TurnosView from '../views/TurnosView.vue'
 import ActividadesView from '../views/ActividadesView.vue'
 import CitasView from '../views/CitasView.vue'
-import PatientDetailsView from '../views/PatientDetailsView.vue'   // Ruta corregida y nombre correcto
+import PatientDetailsView from '../views/PatientDetailsView.vue'
+import UsuariosView from '../views/UsuariosView.vue'
 
 const routes = [
   {
@@ -52,6 +53,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/usuarios',
+    name: 'usuarios',
+    component: UsuariosView,
+    meta: { requiresAuth: true, roles: [1] }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: NotFoundView,
@@ -64,14 +71,19 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to) => {
+// Guardia de navegación moderna (sin next())
+router.beforeEach((to, from) => {
   const token = localStorage.getItem('token')
   const requiresAuth = to.meta.requiresAuth
+  const rolId = localStorage.getItem('rol_id') ? parseInt(localStorage.getItem('rol_id')) : null
 
   if (requiresAuth && !token) {
     return '/login'
   }
   if (to.path === '/login' && token) {
+    return '/'
+  }
+  if (to.meta.roles && !to.meta.roles.includes(rolId)) {
     return '/'
   }
   return true

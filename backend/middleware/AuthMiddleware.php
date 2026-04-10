@@ -19,8 +19,7 @@ class AuthMiddleware {
             exit;
         }
 
-        $secret = getenv('JWT_SECRET') ?: $_ENV['JWT_SECRET'];
-
+        $secret = JWT_SECRET; // en lugar de getenv(...)
         try {
             $decoded = JWT::decode($token, new Key($secret, 'HS256'));
             return (array) $decoded;

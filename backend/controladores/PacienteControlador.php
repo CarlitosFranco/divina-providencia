@@ -2,6 +2,7 @@
 namespace Controladores;
 
 use Modelos\Paciente;
+use Modelos\HistorialMedico;
 
 class PacienteControlador {
     private $pacienteModel;
@@ -28,19 +29,15 @@ class PacienteControlador {
     public function crear() {
         $data = json_decode(file_get_contents("php://input"), true);
         
-        // Validaciones básicas
         if (empty($data['nombres']) || empty($data['apellidos']) || empty($data['fecha_nacimiento'])) {
             http_response_code(400);
             echo json_encode(['error' => 'Nombre, apellidos y fecha de nacimiento son obligatorios']);
             return;
         }
         
-        // Generar fecha_ingreso si no viene
         if (empty($data['fecha_ingreso'])) {
             $data['fecha_ingreso'] = date('Y-m-d');
         }
-        
-        // Asignar estado por defecto
         if (empty($data['estado'])) {
             $data['estado'] = 'Activo';
         }
@@ -86,6 +83,8 @@ class PacienteControlador {
             echo json_encode(['error' => 'Error al eliminar paciente']);
         }
     }
+
+    // Método para obtener todos los datos completos del paciente (incluyendo historial médico)
     public function obtenerCompleto($id) {
         $paciente = $this->pacienteModel->obtenerPorId($id);
         if (!$paciente) {
@@ -95,27 +94,13 @@ class PacienteControlador {
         }
 
         // Obtener historial médico
-        $historial = $this->pacienteModel->obtenerHistorialMedico($id);
+        $historialModel = new HistorialMedico();
+        $historial = $historialModel->obtenerPorPaciente($id);
 
-        // Obtener tratamientos con medicamentos
-        $tratamientos = $this->pacienteModel->obtenerTratamientos($id);
-
-        // Obtener citas
-        $citas = $this->pacienteModel->obtenerCitas($id);
-
-        // Obtener evoluciones (controles)
-        $evoluciones = $this->pacienteModel->obtenerEvoluciones($id);
-
-        // Obtener actividades realizadas por personal
-        $actividades = $this->pacienteModel->obtenerActividades($id);
-
+        // Devolver solo paciente e historial
         echo json_encode([
             'paciente' => $paciente,
-            'historial' => $historial,
-            'tratamientos' => $tratamientos,
-            'citas' => $citas,
-            'evoluciones' => $evoluciones,
-            'actividades' => $actividades
+            'historial' => $historial
         ]);
     }
 }

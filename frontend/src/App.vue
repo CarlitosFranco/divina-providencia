@@ -1,5 +1,5 @@
 <template>
-  <div v-if="token" class="app-layout">
+  <div v-if="isAuthenticated" class="app-layout">
     <!-- Sidebar (menú izquierdo) -->
     <aside class="sidebar">
       <div class="sidebar-header">
@@ -52,6 +52,15 @@
           </svg>
           <span>Citas</span>
         </router-link>
+
+        <!-- Enlace a Usuarios (solo visible para administradores) -->
+        <router-link v-if="esAdmin" to="/usuarios" class="nav-item" active-class="active">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>Usuarios</span>
+        </router-link>
       </nav>
 
       <div class="sidebar-footer">
@@ -81,32 +90,64 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 
 const token = ref(localStorage.getItem('token'))
 const usuario = ref(null)
+const rolId = ref(null)
 const router = useRouter()
 
+// Propiedad computada para saber si está autenticado
+const isAuthenticated = computed(() => !!token.value)
+
+// Propiedad para saber si el usuario es administrador (rol_id = 1)
+const esAdmin = computed(() => rolId.value === 1)
+
 onMounted(() => {
+  // Leer usuario y rol del localStorage de forma segura
   const userStr = localStorage.getItem('usuario')
-  if (userStr) {
-    usuario.value = JSON.parse(userStr)
+  const storedRolId = localStorage.getItem('rol_id')
+
+  if (userStr && userStr !== 'undefined') {
+    try {
+      usuario.value = JSON.parse(userStr)
+      rolId.value = usuario.value?.rol_id ?? (storedRolId ? parseInt(storedRolId) : null)
+    } catch (error) {
+      console.error('Error al parsear usuario del localStorage:', error)
+      usuario.value = null
+      rolId.value = null
+      localStorage.removeItem('usuario')
+      localStorage.removeItem('token')
+      localStorage.removeItem('rol_id')
+      token.value = null
+    }
+  } else {
+    usuario.value = null
+    rolId.value = storedRolId ? parseInt(storedRolId) : null
+  }
+
+  // Si no hay token, redirigir a login (por si acaso)
+  if (!token.value && window.location.pathname !== '/login') {
+    router.push('/login')
   }
 })
 
 const logout = () => {
   localStorage.removeItem('token')
   localStorage.removeItem('usuario')
+  localStorage.removeItem('rol_id')
   delete axios.defaults.headers.common['Authorization']
-  token.value = false
+  token.value = null
+  usuario.value = null
+  rolId.value = null
   router.push('/login')
 }
 </script>
 
 <style>
-/* Estilos globales */
+/* Estilos globales (sin cambios) */
 * {
   margin: 0;
   padding: 0;
@@ -118,13 +159,11 @@ body {
   background: #f1f5f9;
 }
 
-/* Layout principal */
 .app-layout {
   display: flex;
   min-height: 100vh;
 }
 
-/* Sidebar */
 .sidebar {
   width: 280px;
   background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
@@ -238,7 +277,6 @@ body {
   color: #94a3b8;
 }
 
-/* Contenido principal */
 .main-content {
   flex: 1;
   margin-left: 280px;
@@ -247,7 +285,6 @@ body {
   min-height: 100vh;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .sidebar {
     width: 80px;
@@ -264,38 +301,37 @@ body {
   .main-content {
     margin-left: 80px;
   }
-  /* Ajustes para FullCalendar */
-.fc {
-  font-family: 'Inter', system-ui, sans-serif;
-}
-.fc-toolbar-title {
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: #1e293b;
-}
-.fc-button-primary {
-  background: #f1f5f9 !important;
-  border-color: #cbd5e1 !important;
-  color: #1e293b !important;
-  text-transform: capitalize;
-}
-.fc-button-primary:hover {
-  background: #e2e8f0 !important;
-}
-.fc-button-active {
-  background: #667eea !important;
-  border-color: #667eea !important;
-  color: white !important;
-}
-.fc-event {
-  border-radius: 12px;
-  padding: 4px 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-.fc-day-today {
-  background: rgba(102,126,234,0.05) !important;
-}
+  .fc {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  .fc-toolbar-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #1e293b;
+  }
+  .fc-button-primary {
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #1e293b !important;
+    text-transform: capitalize;
+  }
+  .fc-button-primary:hover {
+    background: #e2e8f0 !important;
+  }
+  .fc-button-active {
+    background: #667eea !important;
+    border-color: #667eea !important;
+    color: white !important;
+  }
+  .fc-event {
+    border-radius: 12px;
+    padding: 4px 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .fc-day-today {
+    background: rgba(102,126,234,0.05) !important;
+  }
 }
 </style>

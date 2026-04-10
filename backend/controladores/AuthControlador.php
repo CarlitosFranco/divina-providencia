@@ -31,7 +31,7 @@ class AuthControlador {
             return;
         }
 
-        // Generar JWT
+        // Crear payload con rol incluido
         $payload = [
             'id' => $usuario['id'],
             'email' => $usuario['email'],
@@ -39,12 +39,12 @@ class AuthControlador {
             'rol_id' => $usuario['rol_id'],
             'exp' => time() + (60 * 60 * 24) // 24 horas
         ];
-        
-        $jwtSecret = getenv('JWT_SECRET');     
-        $jwt = JWT::encode($payload, $jwtSecret, 'HS256');
+
+        $jwtSecret = JWT_SECRET; // en lugar de getenv(...)
+        $token = JWT::encode($payload, $jwtSecret, 'HS256');
 
         echo json_encode([
-            'token' => $jwt,
+            'token' => $token,
             'usuario' => [
                 'id' => $usuario['id'],
                 'nombre' => $usuario['nombre'],

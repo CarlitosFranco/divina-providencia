@@ -14,10 +14,10 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost/divina-providencia/backend',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '/index.php'),
-        configure: (proxy) => {
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        configure: (proxy, options) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            // Asegurar que la cabecera Authorization se pase
+            // Reenviar el header Authorization si existe
             if (req.headers.authorization) {
               proxyReq.setHeader('Authorization', req.headers.authorization);
             }

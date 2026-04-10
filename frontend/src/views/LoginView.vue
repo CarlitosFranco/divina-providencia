@@ -87,13 +87,16 @@ const login = async () => {
   error.value = ''
 
   try {
-    const response = await axios.post('/api/login', {
+    // Usa la URL absoluta (como está) o cambia a '/api/login' si usas proxy
+    const response = await axios.post('http://localhost/divina-providencia/backend/login', {
       email: email.value,
       password: password.value
     })
+
     const { token, usuario } = response.data
     localStorage.setItem('token', token)
     localStorage.setItem('usuario', JSON.stringify(usuario))
+    localStorage.setItem('rol_id', usuario.rol_id)   // 👈 Guardar rol
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     router.push('/')
   } catch (err) {
@@ -105,6 +108,7 @@ const login = async () => {
 </script>
 
 <style scoped>
+/* (tus estilos se mantienen igual) */
 * {
   margin: 0;
   padding: 0;
@@ -282,20 +286,16 @@ const login = async () => {
   opacity: 0.7;
 }
 
-/* Responsive */
 @media (max-width: 480px) {
   .login-card {
     border-radius: 20px;
   }
-
   .login-header {
     padding: 32px 24px 20px;
   }
-
   .login-form {
     padding: 0 24px 28px;
   }
-
   .login-footer {
     padding: 20px 24px 28px;
   }

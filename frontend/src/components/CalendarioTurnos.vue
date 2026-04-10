@@ -1,123 +1,92 @@
 <template>
-  <div class="calendario-container">
+  <div class="calendario-wrapper">
+    <div class="calendario-header">
+      <h2>📅 Turnos del Personal</h2>
+      <button class="btn-nuevo-turno" @click="abrirModalNuevo">
+        + Nuevo Turno
+      </button>
+    </div>
+
     <FullCalendar
       ref="fullCalendarRef"
       :options="calendarOptions"
     />
 
-    <!-- Modal para crear/editar turno desde el calendario -->
-    <div v-if="mostrarModal" class="modal-overlay" @click.self="cerrarModal">
-      <div class="modal-container">
-        <div class="modal-header">
-          <h2>{{ turnoEditando ? 'Editar Turno' : 'Nuevo Turno' }}</h2>
-          <button class="btn-close" @click="cerrarModal">✕</button>
-        </div>
-        <form @submit.prevent="guardarTurno" class="modal-form">
-          <div class="form-group">
-            <label>Personal *</label>
-            <select v-model="turnoForm.personal_id" required>
-              <option v-for="p in personalList" :key="p.id" :value="p.id">
-                {{ p.nombres }} {{ p.apellidos }} - {{ p.cargo }}
-              </option>
-            </select>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Fecha *</label>
-              <input type="date" v-model="turnoForm.fecha" required />
-            </div>
-            <div class="form-group">
-              <label>Hora Inicio *</label>
-              <input type="time" v-model="turnoForm.hora_inicio" required />
-            </div>
-            <div class="form-group">
-              <label>Hora Fin *</label>
-              <input type="time" v-model="turnoForm.hora_fin" required />
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Tipo de Turno *</label>
-            <select v-model="turnoForm.tipo_turno" required>
-              <option>Mañana</option>
-              <option>Tarde</option>
-              <option>Noche</option>
-            </select>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn-cancel" @click="cerrarModal">Cancelar</button>
-            <button type="submit" class="btn-submit" :disabled="guardando">
-              <span v-if="guardando" class="spinner-small"></span>
-              {{ turnoEditando ? 'Actualizar' : 'Crear' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <!-- Modal para crear/editar turnos -->
+    <TurnoForm
+      :show="mostrarModal"
+      :turno="turnoEditando"
+      :isEditing="!!turnoEditando"
+      :fechaInicial="fechaSeleccionada"
+      @close="cerrarModal"
+      @saved="onTurnoSaved"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
+import TurnoForm from './TurnoForm.vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
 
+// Referencias
 const fullCalendarRef = ref(null)
-const personalList = ref([])
 const turnos = ref([])
 const mostrarModal = ref(false)
 const turnoEditando = ref(null)
-const guardando = ref(false)
+const fechaSeleccionada = ref('')
 
-const turnoForm = ref({
-  personal_id: '',
-  fecha: '',
-  hora_inicio: '',
-  hora_fin: '',
-  tipo_turno: 'Mañana'
-})
-
-// Cargar personal y turnos
-const cargarPersonal = async () => {
-  try {
-    const res = await axios.get('/api/personal')
-    personalList.value = res.data
-  } catch (err) {
-    console.error('Error al cargar personal:', err)
-  }
-}
-
+// Cargar turnos desde el backend
 const cargarTurnos = async () => {
   try {
     const res = await axios.get('/api/turnos')
     turnos.value = res.data
-    // Refrescar el calendario con los nuevos eventos
+    console.log('Turnos cargados:', turnos.value)
+    // Forzar refresco del calendario
     if (fullCalendarRef.value) {
       const calendarApi = fullCalendarRef.value.getApi()
       calendarApi.refetchEvents()
     }
   } catch (err) {
-    console.error('Error al cargar turnos:', err)
+    console.error('Error cargando turnos:', err)
+    Swal.fire('Error', 'No se pudieron cargar los turnos', 'error')
   }
 }
 
-// Convertir turnos a eventos de FullCalendar
-const obtenerEventos = () => {
+// Convertir turnos a eventos de FullCalendar (reactivo)
+const eventosCalendario = computed(() => {
+  if (!turnos.value.length) return []
+
   const colores = {
     'Mañana': '#10b981', // verde
     'Tarde': '#f59e0b',  // ámbar
     'Noche': '#3b82f6'   // azul
   }
+
   return turnos.value.map(turno => {
+    // Validar datos mínimos
+    if (!turno.fecha || !turno.hora_inicio || !turno.hora_fin) {
+      console.warn('Turno incompleto:', turno)
+      return null
+    }
+
     const fecha = turno.fecha
     const inicio = `${fecha}T${turno.hora_inicio}:00`
     const fin = `${fecha}T${turno.hora_fin}:00`
+
+    // Nombre completo del personal (asumiendo que viene en el objeto)
+    const nombrePersonal = turno.nombres && turno.apellidos
+      ? `${turno.nombres} ${turno.apellidos}`
+      : `Personal ID: ${turno.personal_id}`
+
     return {
       id: turno.id,
-      title: `${turno.nombres} ${turno.apellidos} (${turno.tipo_turno})`,
+      title: `${nombrePersonal} (${turno.tipo_turno})`,
       start: inicio,
       end: fin,
       backgroundColor: colores[turno.tipo_turno] || '#6b7280',
@@ -129,8 +98,8 @@ const obtenerEventos = () => {
         hora_fin: turno.hora_fin
       }
     }
-  })
-}
+  }).filter(event => event !== null)
+})
 
 // Opciones del calendario
 const calendarOptions = ref({
@@ -148,7 +117,7 @@ const calendarOptions = ref({
     week: 'Semana',
     day: 'Día'
   },
-  events: obtenerEventos,
+  events: [], // Se llenará dinámicamente con watch
   editable: true,
   selectable: true,
   selectMirror: true,
@@ -157,28 +126,19 @@ const calendarOptions = ref({
   // Al hacer clic en una celda vacía (crear nuevo turno)
   select: (info) => {
     const fecha = info.startStr.split('T')[0]
-    turnoForm.value = {
-      personal_id: '',
-      fecha: fecha,
-      hora_inicio: info.startStr.split('T')[1]?.slice(0,5) || '08:00',
-      hora_fin: info.endStr.split('T')[1]?.slice(0,5) || '09:00',
-      tipo_turno: 'Mañana'
-    }
+    const horaInicio = info.startStr.split('T')[1]?.slice(0,5) || '07:00'
+    fechaSeleccionada.value = fecha
     turnoEditando.value = null
+    // Opcional: también se podría pasar la hora de inicio por defecto al modal,
+    // pero lo dejamos así; el modal usará la fecha y hora por defecto 08:00.
     mostrarModal.value = true
   },
   // Al hacer clic en un evento (editar)
   eventClick: (info) => {
     const turno = turnos.value.find(t => t.id == info.event.id)
     if (turno) {
-      turnoForm.value = {
-        personal_id: turno.personal_id,
-        fecha: turno.fecha,
-        hora_inicio: turno.hora_inicio,
-        hora_fin: turno.hora_fin,
-        tipo_turno: turno.tipo_turno
-      }
       turnoEditando.value = turno
+      fechaSeleccionada.value = turno.fecha
       mostrarModal.value = true
     }
   },
@@ -196,177 +156,178 @@ const calendarOptions = ref({
         personal_id: info.event.extendedProps.personal_id,
         tipo_turno: info.event.extendedProps.tipo_turno
       })
-      Swal.fire('Actualizado', 'El turno se ha reubicado correctamente', 'success')
-      cargarTurnos()
+      Swal.fire('Actualizado', 'Turno reubicado correctamente', 'success')
+      await cargarTurnos()
     } catch (error) {
       Swal.fire('Error', 'No se pudo actualizar el turno', 'error')
-      cargarTurnos() // revertir cambios visuales
+      await cargarTurnos() // revertir cambios visuales
     }
   }
 })
 
-const guardarTurno = async () => {
-  guardando.value = true
-  try {
-    if (turnoEditando.value) {
-      await axios.put(`/api/turnos/${turnoEditando.value.id}`, turnoForm.value)
-      Swal.fire('Actualizado', 'Turno actualizado correctamente', 'success')
-    } else {
-      await axios.post('/api/turnos', turnoForm.value)
-      Swal.fire('Creado', 'Turno creado correctamente', 'success')
-    }
-    cargarTurnos()
-    cerrarModal()
-  } catch (error) {
-    Swal.fire('Error', error.response?.data?.error || 'Error al guardar el turno', 'error')
-  } finally {
-    guardando.value = false
+// Sincronizar eventos del calendario con la fuente reactiva
+watch(eventosCalendario, (newEvents) => {
+  if (fullCalendarRef.value) {
+    const calendarApi = fullCalendarRef.value.getApi()
+    calendarApi.removeAllEvents()
+    calendarApi.addEventSource(newEvents)
   }
+}, { deep: true })
+
+// Métodos del modal
+const abrirModalNuevo = () => {
+  turnoEditando.value = null
+  fechaSeleccionada.value = new Date().toISOString().slice(0,10)
+  mostrarModal.value = true
 }
 
 const cerrarModal = () => {
   mostrarModal.value = false
   turnoEditando.value = null
+  fechaSeleccionada.value = ''
 }
 
-onMounted(async () => {
-  await cargarPersonal()
+const onTurnoSaved = async () => {
   await cargarTurnos()
+  cerrarModal()
+}
+
+onMounted(() => {
+  cargarTurnos()
 })
 </script>
 
 <style scoped>
-.calendario-container {
-  background: white;
-  border-radius: 20px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+/* ESTILOS MEJORADOS */
+.calendario-wrapper {
+  background: #ffffff;
+  border-radius: 28px;
+  padding: 24px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.03), 0 2px 6px rgba(0,0,0,0.05);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
-}
-.modal-container {
-  background: white;
-  border-radius: 24px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 85vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 35px -10px rgba(0,0,0,0.3);
-}
-.modal-header {
+
+.calendario-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
-  border-radius: 24px 24px 0 0;
-}
-.modal-header h2 {
-  font-size: 1.4rem;
-  color: #1e293b;
-}
-.btn-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #94a3b8;
-  transition: color 0.2s;
-}
-.btn-close:hover {
-  color: #ef4444;
-}
-.modal-form {
-  padding: 24px;
-}
-.form-row {
-  display: flex;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 16px;
 }
-.form-group {
-  flex: 1;
-  margin-bottom: 8px;
+
+.calendario-header h2 {
+  font-size: 1.6rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #1e293b, #2d3a4f);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  margin: 0;
 }
-.form-group label {
-  display: block;
-  font-weight: 500;
-  margin-bottom: 6px;
-  color: #334155;
-  font-size: 0.85rem;
-}
-.form-group input, .form-group select {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  font-family: inherit;
-  transition: all 0.2s;
-}
-.form-group input:focus, .form-group select:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
-}
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid #e2e8f0;
-}
-.btn-cancel {
-  padding: 10px 20px;
-  background: #f1f5f9;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  font-weight: 500;
-}
-.btn-submit {
-  padding: 10px 24px;
+
+.btn-nuevo-turno {
   background: linear-gradient(135deg, #667eea, #764ba2);
   border: none;
-  border-radius: 12px;
+  padding: 10px 24px;
+  border-radius: 40px;
   color: white;
   font-weight: 500;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  font-size: 0.9rem;
 }
-.btn-submit:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+
+.btn-nuevo-turno:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(102,126,234,0.3);
 }
-.spinner-small {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+
+/* Personalizar el calendario de FullCalendar */
+:deep(.fc) {
+  --fc-border-color: #e9eef3;
+  --fc-button-bg-color: #f8fafc;
+  --fc-button-border-color: #cbd5e1;
+  --fc-button-text-color: #1e293b;
+  --fc-button-hover-bg-color: #f1f5f9;
+  --fc-today-bg-color: #fefce8;
+  --fc-event-border-radius: 12px;
+  --fc-event-bg-color: #667eea;
+  font-family: inherit;
 }
-@keyframes spin {
-  to { transform: rotate(360deg); }
+
+:deep(.fc .fc-toolbar-title) {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #0f172a;
 }
-@media (max-width: 640px) {
-  .form-row {
-    flex-direction: column;
-    gap: 0;
-  }
+
+:deep(.fc .fc-button) {
+  border-radius: 40px;
+  padding: 6px 14px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+:deep(.fc .fc-button-primary:not(:disabled):focus) {
+  box-shadow: none;
+}
+
+:deep(.fc .fc-daygrid-day) {
+  transition: background 0.1s;
+}
+
+:deep(.fc .fc-daygrid-day:hover) {
+  background: #fafcff;
+}
+
+:deep(.fc .fc-daygrid-day-number) {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #334155;
+  padding: 6px 8px;
+}
+
+:deep(.fc .fc-day-today .fc-daygrid-day-number) {
+  background: #eef2ff;
+  border-radius: 30px;
+  padding: 6px 12px;
+  color: #4f46e5;
+}
+
+:deep(.fc-event) {
+  border: none;
+  border-radius: 16px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+:deep(.fc-event:hover) {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+:deep(.fc-daygrid-event-harness) {
+  margin: 2px 0;
+}
+
+:deep(.fc-timegrid-event) {
+  border-radius: 16px;
+  padding: 4px 8px;
+}
+
+:deep(.fc-timegrid-slot-label) {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+:deep(.fc-col-header-cell-cushion) {
+  font-weight: 600;
+  color: #1e293b;
+  padding: 10px 0;
 }
 </style>
