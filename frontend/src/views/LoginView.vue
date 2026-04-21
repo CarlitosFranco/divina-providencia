@@ -87,7 +87,6 @@ const login = async () => {
   error.value = ''
 
   try {
-    // Usa la URL absoluta (como está) o cambia a '/api/login' si usas proxy
     const response = await axios.post('http://localhost/divina-providencia/backend/login', {
       email: email.value,
       password: password.value
@@ -96,7 +95,8 @@ const login = async () => {
     const { token, usuario } = response.data
     localStorage.setItem('token', token)
     localStorage.setItem('usuario', JSON.stringify(usuario))
-    localStorage.setItem('rol_id', usuario.rol_id)   // 👈 Guardar rol
+    localStorage.setItem('rol_id', usuario.rol_id)
+    localStorage.setItem('personal_id', usuario.personal_id || '')  // 👈 Guardar personal_id
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     router.push('/')
   } catch (err) {

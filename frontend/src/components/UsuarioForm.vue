@@ -8,13 +8,28 @@
 
       <form @submit.prevent="guardar" class="modal-form">
         <div class="form-group">
-          <label>Nombre *</label>
+          <label>Nombre completo *</label>
           <input type="text" v-model="form.nombre" required />
+        </div>
+
+        <div class="form-group">
+          <label>Apellidos (para el empleado)</label>
+          <input type="text" v-model="form.apellidos" />
         </div>
 
         <div class="form-group">
           <label>Email *</label>
           <input type="email" v-model="form.email" required />
+        </div>
+
+        <div class="form-group">
+          <label>Documento de identidad</label>
+          <input type="text" v-model="form.documento_identidad" />
+        </div>
+
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input type="text" v-model="form.telefono" />
         </div>
 
         <div class="form-group" v-if="!isEditing">
@@ -68,7 +83,10 @@ const emit = defineEmits(['close', 'saved'])
 
 const form = ref({
   nombre: '',
+  apellidos: '',
   email: '',
+  documento_identidad: '',
+  telefono: '',
   password: '',
   rol_id: '',
   activo: 1
@@ -76,7 +94,6 @@ const form = ref({
 const roles = ref([])
 const guardando = ref(false)
 
-// Cargar roles disponibles
 const cargarRoles = async () => {
   try {
     const token = localStorage.getItem('token')
@@ -95,13 +112,25 @@ watch(() => props.show, (visible) => {
     if (props.usuario && props.isEditing) {
       form.value = {
         nombre: props.usuario.nombre,
+        apellidos: props.usuario.apellidos || '',
         email: props.usuario.email,
+        documento_identidad: props.usuario.documento_identidad || '',
+        telefono: props.usuario.telefono || '',
         password: '',
         rol_id: props.usuario.rol_id,
         activo: props.usuario.activo
       }
     } else {
-      form.value = { nombre: '', email: '', password: '', rol_id: '', activo: 1 }
+      form.value = {
+        nombre: '',
+        apellidos: '',
+        email: '',
+        documento_identidad: '',
+        telefono: '',
+        password: '',
+        rol_id: '',
+        activo: 1
+      }
     }
   }
 }, { immediate: true })
@@ -129,15 +158,5 @@ const guardar = async () => {
 </script>
 
 <style scoped>
-/* mismos estilos del modal de PacienteForm */
-.modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:1000; }
-.modal-container { background:white; border-radius:24px; width:90%; max-width:500px; max-height:85vh; overflow-y:auto; }
-.modal-header { padding:20px 24px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; }
-.modal-form { padding:24px; }
-.form-group { margin-bottom:16px; }
-.form-group label { display:block; margin-bottom:6px; font-weight:500; }
-.form-group input, .form-group select { width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:12px; }
-.modal-footer { display:flex; justify-content:flex-end; gap:12px; margin-top:24px; }
-.btn-cancel { background:#f1f5f9; border:none; padding:10px 20px; border-radius:12px; }
-.btn-submit { background:linear-gradient(135deg,#667eea,#764ba2); border:none; padding:10px 24px; border-radius:12px; color:white; }
+/* tus estilos de modal */
 </style>

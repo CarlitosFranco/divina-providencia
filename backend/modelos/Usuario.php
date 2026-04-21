@@ -33,7 +33,10 @@ class Usuario {
     }
 
     public function obtenerPorEmail($email) {
-        $query = "SELECT * FROM {$this->table} WHERE email = :email";
+        // Incluimos personal_id en la selección
+        $query = "SELECT id, nombre, email, password, rol_id, personal_id, activo 
+                  FROM {$this->table} 
+                  WHERE email = :email";
         $stmt = $this->db->prepare($query);
         $stmt->bindParam(':email', $email);
         $stmt->execute();
@@ -41,23 +44,27 @@ class Usuario {
     }
 
     public function crear($datos) {
+        // Agregamos personal_id a la inserción
         $query = "INSERT INTO {$this->table} 
-                  (nombre, email, password, rol_id, activo)
-                  VALUES (:nombre, :email, :password, :rol_id, :activo)";
+                  (nombre, email, password, rol_id, personal_id, activo)
+                  VALUES (:nombre, :email, :password, :rol_id, :personal_id, :activo)";
         $stmt = $this->db->prepare($query);
         $stmt->bindParam(':nombre', $datos['nombre']);
         $stmt->bindParam(':email', $datos['email']);
         $stmt->bindParam(':password', $datos['password']);
         $stmt->bindParam(':rol_id', $datos['rol_id']);
+        $stmt->bindParam(':personal_id', $datos['personal_id']);
         $stmt->bindParam(':activo', $datos['activo']);
         return $stmt->execute();
     }
 
     public function actualizar($id, $datos) {
+        // Puedes incluir personal_id si quieres actualizarlo (opcional)
         $query = "UPDATE {$this->table} SET
                   nombre = :nombre,
                   email = :email,
                   rol_id = :rol_id,
+                  personal_id = :personal_id,
                   activo = :activo
                   WHERE id = :id";
         $stmt = $this->db->prepare($query);
@@ -65,6 +72,7 @@ class Usuario {
         $stmt->bindParam(':nombre', $datos['nombre']);
         $stmt->bindParam(':email', $datos['email']);
         $stmt->bindParam(':rol_id', $datos['rol_id']);
+        $stmt->bindParam(':personal_id', $datos['personal_id']);
         $stmt->bindParam(':activo', $datos['activo']);
         return $stmt->execute();
     }

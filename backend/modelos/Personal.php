@@ -82,4 +82,22 @@ class Personal {
         $stmt->bindParam(':id', $id);
         return $stmt->execute();
     }
+
+    // ========== MÉTODOS AGREGADOS PARA OBTENER ROLES ==========
+    public function obtenerUsuarioPorPersonalId($personalId) {
+        $query = "SELECT * FROM usuarios WHERE personal_id = :personal_id";
+        $stmt = $this->db->prepare($query);
+        $stmt->bindParam(':personal_id', $personalId);
+        $stmt->execute();
+        return $stmt->fetch(\PDO::FETCH_ASSOC);
+    }
+
+    public function obtenerRolNombre($rolId) {
+        $query = "SELECT nombre FROM roles WHERE id = :id";
+        $stmt = $this->db->prepare($query);
+        $stmt->bindParam(':id', $rolId);
+        $stmt->execute();
+        $rol = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return $rol ? $rol['nombre'] : null;
+    }
 }

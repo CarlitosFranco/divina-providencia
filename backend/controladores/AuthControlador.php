@@ -2,8 +2,6 @@
 namespace Controladores;
 
 use Modelos\Usuario;
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
 
 class AuthControlador {
     private $usuarioModel;
@@ -31,17 +29,11 @@ class AuthControlador {
             return;
         }
 
-        // Crear payload con rol incluido
-        $payload = [
-            'id' => $usuario['id'],
-            'email' => $usuario['email'],
-            'nombre' => $usuario['nombre'],
-            'rol_id' => $usuario['rol_id'],
-            'exp' => time() + (60 * 60 * 24) // 24 horas
-        ];
+        // Token simple (puedes mantenerlo o usar JWT)
+        $token = bin2hex(random_bytes(32));
 
-        $jwtSecret = JWT_SECRET; // en lugar de getenv(...)
-        $token = JWT::encode($payload, $jwtSecret, 'HS256');
+        // Asegurar que personal_id esté presente (aunque sea null)
+        $personalId = $usuario['personal_id'] ?? null;
 
         echo json_encode([
             'token' => $token,
@@ -49,7 +41,8 @@ class AuthControlador {
                 'id' => $usuario['id'],
                 'nombre' => $usuario['nombre'],
                 'email' => $usuario['email'],
-                'rol_id' => $usuario['rol_id']
+                'rol_id' => $usuario['rol_id'],
+                'personal_id' => $personalId
             ]
         ]);
     }

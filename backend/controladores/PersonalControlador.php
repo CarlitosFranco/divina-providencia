@@ -12,6 +12,12 @@ class PersonalControlador {
 
     public function listar() {
         $personal = $this->personalModel->obtenerTodos();
+        // Agregar el rol de cada empleado consultando la tabla usuarios
+        foreach ($personal as &$p) {
+            $usuario = $this->personalModel->obtenerUsuarioPorPersonalId($p['id']);
+            $p['rol_id'] = $usuario ? $usuario['rol_id'] : null;
+            $p['rol_nombre'] = $usuario ? $this->personalModel->obtenerRolNombre($usuario['rol_id']) : 'Sin usuario';
+        }
         echo json_encode($personal);
     }
 
@@ -34,7 +40,6 @@ class PersonalControlador {
             return;
         }
         
-        // Si no se envía activo, asigna true
         if (!isset($data['activo'])) {
             $data['activo'] = 1;
         }

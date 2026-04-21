@@ -1,6 +1,6 @@
 <template>
   <div v-if="isAuthenticated" class="app-layout">
-    <!-- Sidebar (menú izquierdo) -->
+    <!-- Sidebar moderno -->
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="logo">
@@ -19,7 +19,7 @@
           <span>Pacientes</span>
         </router-link>
 
-        <router-link to="/personal" class="nav-item" active-class="active">
+        <router-link v-if="rolId !== 5" to="/personal" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
             <circle cx="12" cy="7" r="4"/>
@@ -27,7 +27,7 @@
           <span>Personal</span>
         </router-link>
 
-        <router-link to="/turnos" class="nav-item" active-class="active">
+        <router-link v-if="rolId === 1" to="/turnos" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <polyline points="12 6 12 12 16 14"/>
@@ -35,7 +35,7 @@
           <span>Turnos</span>
         </router-link>
 
-        <router-link to="/actividades" class="nav-item" active-class="active">
+        <router-link v-if="rolId === 1 || rolId === 3" to="/actividades" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
             <polyline points="22 4 12 14.01 9 11.01"/>
@@ -43,7 +43,7 @@
           <span>Actividades</span>
         </router-link>
 
-        <router-link to="/citas" class="nav-item" active-class="active">
+        <router-link v-if="rolId === 1 || rolId === 3" to="/citas" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
@@ -53,8 +53,24 @@
           <span>Citas</span>
         </router-link>
 
-        <!-- Enlace a Usuarios (solo visible para administradores) -->
-        <router-link v-if="esAdmin" to="/usuarios" class="nav-item" active-class="active">
+        <router-link v-if="rolId === 1 || rolId === 3" to="/asistencias" class="nav-item" active-class="active">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>Asistencias</span>
+        </router-link>
+
+        <router-link to="/dietas" class="nav-item" active-class="active">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm0 13c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z" fill="currentColor"/>
+          </svg>
+          <span>Dietas</span>
+        </router-link>
+
+        <router-link v-if="rolId === 1" to="/usuarios" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
             <circle cx="12" cy="7" r="4"/>
@@ -79,13 +95,16 @@
       </div>
     </aside>
 
-    <!-- Contenido principal -->
     <main class="main-content">
       <router-view />
     </main>
+
+    <!-- Botón flotante de asistencia (global) -->
+    <button v-if="personalIdGlobal" class="btn-flotante" @click="abrirAsistenciaGlobal">
+      ⏱️ Marcar Asistencia
+    </button>
   </div>
 
-  <!-- Pantalla de login (sin sidebar) -->
   <router-view v-else />
 </template>
 
@@ -93,61 +112,89 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import Swal from 'sweetalert2'
 
 const token = ref(localStorage.getItem('token'))
 const usuario = ref(null)
 const rolId = ref(null)
+const personalIdGlobal = ref(null)
 const router = useRouter()
 
-// Propiedad computada para saber si está autenticado
 const isAuthenticated = computed(() => !!token.value)
 
-// Propiedad para saber si el usuario es administrador (rol_id = 1)
-const esAdmin = computed(() => rolId.value === 1)
-
 onMounted(() => {
-  // Leer usuario y rol del localStorage de forma segura
   const userStr = localStorage.getItem('usuario')
-  const storedRolId = localStorage.getItem('rol_id')
-
   if (userStr && userStr !== 'undefined') {
     try {
       usuario.value = JSON.parse(userStr)
-      rolId.value = usuario.value?.rol_id ?? (storedRolId ? parseInt(storedRolId) : null)
+      rolId.value = usuario.value.rol_id
+      personalIdGlobal.value = usuario.value.personal_id || null
     } catch (error) {
-      console.error('Error al parsear usuario del localStorage:', error)
-      usuario.value = null
-      rolId.value = null
-      localStorage.removeItem('usuario')
-      localStorage.removeItem('token')
-      localStorage.removeItem('rol_id')
-      token.value = null
+      console.error(error)
+      logout()
     }
-  } else {
-    usuario.value = null
-    rolId.value = storedRolId ? parseInt(storedRolId) : null
-  }
-
-  // Si no hay token, redirigir a login (por si acaso)
-  if (!token.value && window.location.pathname !== '/login') {
-    router.push('/login')
   }
 })
 
+const abrirAsistenciaGlobal = async () => {
+  if (!personalIdGlobal.value) {
+    Swal.fire('Error', 'No tienes un empleado asociado. Contacta al administrador.', 'error')
+    return
+  }
+  const hoy = new Date().toISOString().slice(0,10)
+  try {
+    const res = await axios.get(`/api/asistencia?fecha=${hoy}&personal_id=${personalIdGlobal.value}`)
+    const asistencia = res.data
+    const entradaRegistrada = asistencia && asistencia.hora_entrada
+    const salidaRegistrada = asistencia && asistencia.hora_salida
+
+    let mensaje = `Fecha: ${hoy}<br>`
+    mensaje += `Entrada: ${asistencia?.hora_entrada || 'No registrada'}<br>`
+    mensaje += `Salida: ${asistencia?.hora_salida || 'No registrada'}<br>`
+    if (asistencia?.horas_trabajadas) mensaje += `Horas trabajadas: ${asistencia.horas_trabajadas}`
+
+    if (!entradaRegistrada) {
+      const result = await Swal.fire({
+        title: 'Registrar Entrada',
+        html: mensaje,
+        showCancelButton: true,
+        confirmButtonText: 'Marcar Entrada',
+        cancelButtonText: 'Cancelar'
+      })
+      if (result.isConfirmed) {
+        await axios.post('/api/asistencia/entrada', { personal_id: personalIdGlobal.value, fecha: hoy })
+        Swal.fire('Éxito', 'Entrada registrada correctamente', 'success')
+      }
+    } else if (!salidaRegistrada) {
+      const result = await Swal.fire({
+        title: 'Registrar Salida',
+        html: mensaje,
+        showCancelButton: true,
+        confirmButtonText: 'Marcar Salida',
+        cancelButtonText: 'Cancelar'
+      })
+      if (result.isConfirmed) {
+        await axios.post('/api/asistencia/salida', { personal_id: personalIdGlobal.value, fecha: hoy })
+        Swal.fire('Éxito', 'Salida registrada correctamente', 'success')
+      }
+    } else {
+      Swal.fire('Info', 'Ya has registrado entrada y salida hoy.', 'info')
+    }
+  } catch (err) {
+    Swal.fire('Error', err.response?.data?.error || 'Error al consultar asistencia', 'error')
+  }
+}
+
 const logout = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('usuario')
-  localStorage.removeItem('rol_id')
+  localStorage.clear()
   delete axios.defaults.headers.common['Authorization']
   token.value = null
-  usuario.value = null
-  rolId.value = null
   router.push('/login')
 }
 </script>
 
 <style>
-/* Estilos globales (sin cambios) */
+/* ESTILOS GLOBALES MEJORADOS */
 * {
   margin: 0;
   padding: 0;
@@ -155,18 +202,20 @@ const logout = () => {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: #f1f5f9;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f4f7fc;
 }
 
+/* Layout principal */
 .app-layout {
   display: flex;
   min-height: 100vh;
 }
 
+/* Sidebar moderno */
 .sidebar {
   width: 280px;
-  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(180deg, #1e2b3c 0%, #0f1a24 100%);
   color: #e2e8f0;
   display: flex;
   flex-direction: column;
@@ -176,6 +225,7 @@ body {
   bottom: 0;
   transition: all 0.3s ease;
   z-index: 10;
+  box-shadow: 2px 0 12px rgba(0,0,0,0.08);
 }
 
 .sidebar-header {
@@ -187,7 +237,7 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: white;
 }
@@ -201,24 +251,26 @@ body {
   padding: 24px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-radius: 12px;
   color: #cbd5e1;
   text-decoration: none;
   transition: all 0.2s ease;
   font-weight: 500;
+  font-size: 0.9rem;
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.08);
   color: white;
+  transform: translateX(4px);
 }
 
 .nav-item.active {
@@ -229,10 +281,12 @@ body {
 
 .nav-item svg {
   flex-shrink: 0;
+  width: 20px;
+  height: 20px;
 }
 
 .sidebar-footer {
-  padding: 24px;
+  padding: 20px 16px;
   border-top: 1px solid rgba(255,255,255,0.1);
 }
 
@@ -249,7 +303,7 @@ body {
   cursor: pointer;
   transition: all 0.2s ease;
   font-weight: 500;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .logout-btn:hover {
@@ -261,7 +315,6 @@ body {
 .user-info {
   text-align: center;
   padding-top: 12px;
-  border-top: 1px solid rgba(255,255,255,0.1);
 }
 
 .user-name {
@@ -273,18 +326,43 @@ body {
 
 .user-email {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #94a3b8;
 }
 
+/* Contenido principal */
 .main-content {
   flex: 1;
   margin-left: 280px;
-  padding: 24px;
-  background: #f1f5f9;
+  padding: 28px;
+  background: #f4f7fc;
   min-height: 100vh;
 }
 
+/* Botón flotante moderno */
+.btn-flotante {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  cursor: pointer;
+  z-index: 1000;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-flotante:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(102,126,234,0.4);
+}
+
+/* Responsive */
 @media (max-width: 768px) {
   .sidebar {
     width: 80px;
@@ -301,37 +379,21 @@ body {
   .main-content {
     margin-left: 80px;
   }
-  .fc {
-    font-family: 'Inter', system-ui, sans-serif;
+  .btn-flotante {
+    padding: 8px 16px;
+    font-size: 0.8rem;
   }
-  .fc-toolbar-title {
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: #1e293b;
-  }
-  .fc-button-primary {
-    background: #f1f5f9 !important;
-    border-color: #cbd5e1 !important;
-    color: #1e293b !important;
-    text-transform: capitalize;
-  }
-  .fc-button-primary:hover {
-    background: #e2e8f0 !important;
-  }
-  .fc-button-active {
-    background: #667eea !important;
-    border-color: #667eea !important;
-    color: white !important;
-  }
-  .fc-event {
-    border-radius: 12px;
-    padding: 4px 6px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-  }
-  .fc-day-today {
-    background: rgba(102,126,234,0.05) !important;
-  }
+}
+
+/* Ajustes para tarjetas y tablas (puedes agregarlos en cada vista) */
+.card {
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(0,0,0,0.1);
 }
 </style>

@@ -8,6 +8,8 @@ import ActividadesView from '../views/ActividadesView.vue'
 import CitasView from '../views/CitasView.vue'
 import PatientDetailsView from '../views/PatientDetailsView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
+import AsistenciasView from '../views/AsistenciasView.vue'
+import DietasView from '../views/DietasView.vue'
 
 const routes = [
   {
@@ -15,6 +17,12 @@ const routes = [
     name: 'login',
     component: LoginView,
     meta: { requiresAuth: false }
+  },
+  {
+    path: '/dietas',
+    name: 'dietas',
+    component: DietasView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/',
@@ -63,6 +71,12 @@ const routes = [
     name: 'not-found',
     component: NotFoundView,
     meta: { requiresAuth: false }
+  },
+  {
+  path: '/asistencias',
+  name: 'asistencias',
+  component: AsistenciasView,
+  meta: { requiresAuth: true }
   }
 ]
 
