@@ -25,6 +25,7 @@
       <div class="tabs">
         <button :class="{ active: activeTab === 'info' }" @click="activeTab = 'info'">Datos Personales</button>
         <button :class="{ active: activeTab === 'medical' }" @click="activeTab = 'medical'">Historial Médico</button>
+        <button :class="{ active: activeTab === 'archivos' }" @click="activeTab = 'archivos'">📎 Archivos</button>
       </div>
 
       <!-- Pestaña: Datos Personales -->
@@ -74,6 +75,11 @@
           @saved="recargarHistorial"
         />
       </div>
+
+      <!-- Pestaña: Archivos -->
+      <div v-if="activeTab === 'archivos'">
+        <ArchivosPaciente :pacienteId="paciente.id" />
+      </div>
     </div>
   </div>
 </template>
@@ -83,6 +89,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import HistorialForm from '@/components/HistorialForm.vue'
+import ArchivosPaciente from '@/components/ArchivosPaciente.vue'
 
 const route = useRoute()
 const paciente = ref(null)
@@ -164,7 +171,7 @@ const eliminarHistorial = async (idHistorial) => {
   }
 }
 
-// ========== EXPORTAR A PDF (con fetch y token en header) ==========
+// ========== EXPORTAR A PDF ==========
 const exportarPDF = async () => {
   const id = route.params.id
   const token = localStorage.getItem('token')

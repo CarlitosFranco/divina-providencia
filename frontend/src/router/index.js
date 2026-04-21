@@ -10,6 +10,7 @@ import PatientDetailsView from '../views/PatientDetailsView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
 import AsistenciasView from '../views/AsistenciasView.vue'
 import DietasView from '../views/DietasView.vue'
+import ReporteAsistenciasView from '../views/ReporteAsistenciasView.vue'
 
 const routes = [
   {
@@ -17,12 +18,6 @@ const routes = [
     name: 'login',
     component: LoginView,
     meta: { requiresAuth: false }
-  },
-  {
-    path: '/dietas',
-    name: 'dietas',
-    component: DietasView,
-    meta: { requiresAuth: true }
   },
   {
     path: '/',
@@ -40,7 +35,7 @@ const routes = [
     path: '/turnos',
     name: 'turnos',
     component: TurnosView,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, roles: [1] }
   },
   {
     path: '/actividades',
@@ -67,16 +62,28 @@ const routes = [
     meta: { requiresAuth: true, roles: [1] }
   },
   {
+    path: '/asistencias',
+    name: 'asistencias',
+    component: AsistenciasView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/dietas',
+    name: 'dietas',
+    component: DietasView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/reporte-asistencias',
+    name: 'reporte-asistencias',
+    component: ReporteAsistenciasView,
+    meta: { requiresAuth: true, roles: [1] }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: NotFoundView,
     meta: { requiresAuth: false }
-  },
-  {
-  path: '/asistencias',
-  name: 'asistencias',
-  component: AsistenciasView,
-  meta: { requiresAuth: true }
   }
 ]
 
@@ -85,7 +92,7 @@ const router = createRouter({
   routes
 })
 
-// Guardia de navegación moderna (sin next())
+// Guardia de navegación con verificación de roles
 router.beforeEach((to, from) => {
   const token = localStorage.getItem('token')
   const requiresAuth = to.meta.requiresAuth
@@ -97,6 +104,7 @@ router.beforeEach((to, from) => {
   if (to.path === '/login' && token) {
     return '/'
   }
+  // Verificar roles si la ruta lo requiere
   if (to.meta.roles && !to.meta.roles.includes(rolId)) {
     return '/'
   }

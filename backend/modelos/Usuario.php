@@ -9,6 +9,7 @@ class Usuario {
 
     public function __construct() {
         $this->db = (new Database())->getConnection();
+        if (!$this->db) throw new \Exception("Error de conexión a BD");
     }
 
     public function obtenerTodos() {
@@ -33,7 +34,6 @@ class Usuario {
     }
 
     public function obtenerPorEmail($email) {
-        // Incluimos personal_id en la selección
         $query = "SELECT id, nombre, email, password, rol_id, personal_id, activo 
                   FROM {$this->table} 
                   WHERE email = :email";
@@ -44,7 +44,6 @@ class Usuario {
     }
 
     public function crear($datos) {
-        // Agregamos personal_id a la inserción
         $query = "INSERT INTO {$this->table} 
                   (nombre, email, password, rol_id, personal_id, activo)
                   VALUES (:nombre, :email, :password, :rol_id, :personal_id, :activo)";
@@ -59,7 +58,6 @@ class Usuario {
     }
 
     public function actualizar($id, $datos) {
-        // Puedes incluir personal_id si quieres actualizarlo (opcional)
         $query = "UPDATE {$this->table} SET
                   nombre = :nombre,
                   email = :email,

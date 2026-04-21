@@ -1,32 +1,23 @@
 <?php
 namespace Config;
 
-use PDO;
-use PDOException;
-
 class Database {
-    private $host;
-    private $dbname;
-    private $username;
-    private $password;
-    private $conn;
-
-    public function __construct() {
-        $this->host = $_ENV['DB_HOST'] ?? '127.0.0.1';
-        $this->dbname = $_ENV['DB_NAME'] ?? 'divina_providencia';
-        $this->username = $_ENV['DB_USER'] ?? 'root';
-        $this->password = $_ENV['DB_PASS'] ?? '';
-    }
+    private $host = 'localhost';
+    private $dbname = 'divina_providencia';
+    private $user = 'root';
+    private $pass = '';
+    private $charset = 'utf8mb4';
 
     public function getConnection() {
-        $this->conn = null;
         try {
-            $this->conn = new PDO("mysql:host=" . $this->host . ";dbname=" . $this->dbname, $this->username, $this->password);
-            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $this->conn->exec("set names utf8");
-        } catch(PDOException $exception) {
-            echo "Error de conexión: " . $exception->getMessage();
+            $dsn = "mysql:host={$this->host};dbname={$this->dbname};charset={$this->charset}";
+            $pdo = new \PDO($dsn, $this->user, $this->pass);
+            $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+            return $pdo;
+        } catch (\PDOException $e) {
+            // No lanzar excepción, sino devolver null y loguear
+            error_log("Error de conexión a BD: " . $e->getMessage());
+            return null;
         }
-        return $this->conn;
     }
 }

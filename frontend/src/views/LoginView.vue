@@ -96,7 +96,7 @@ const login = async () => {
     localStorage.setItem('token', token)
     localStorage.setItem('usuario', JSON.stringify(usuario))
     localStorage.setItem('rol_id', usuario.rol_id)
-    localStorage.setItem('personal_id', usuario.personal_id || '')  // 👈 Guardar personal_id
+    localStorage.setItem('personal_id', usuario.personal_id || '')   // 👈 CRUCIAL
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     router.push('/')
   } catch (err) {

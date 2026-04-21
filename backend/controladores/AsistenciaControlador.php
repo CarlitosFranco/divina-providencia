@@ -93,4 +93,54 @@ class AsistenciaControlador {
 
         echo json_encode($asistencias);
     }
+
+    public function reporte() {
+        $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
+        $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
+        $personalId = $_GET['personal_id'] ?? null;
+
+        $query = "SELECT a.*, p.nombres, p.apellidos 
+                FROM asistencia a
+                JOIN personal p ON a.personal_id = p.id
+                WHERE a.fecha BETWEEN :fecha_inicio AND :fecha_fin";
+        if ($personalId) {
+            $query .= " AND a.personal_id = :personal_id";
+        }
+        $query .= " ORDER BY a.fecha DESC, a.id DESC";
+
+        $db = (new \Config\Database())->getConnection();
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':fecha_inicio', $fechaInicio);
+        $stmt->bindParam(':fecha_fin', $fechaFin);
+        if ($personalId) {
+            $stmt->bindParam(':personal_id', $personalId);
+        }
+        $stmt->execute();
+        $asistencias = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Calcular resumen por empleado
+        $resumen = [];
+        foreach ($asistencias as $a) {
+            $key = $a['personal_id'];
+            if (!isset($resumen[$key])) {
+                $resumen[$key] = [
+                    'personal_id' => $a['personal_id'],
+                    'nombres' => $a['nombres'],
+                    'apellidos' => $a['apellidos'],
+                    'total_horas' => 0,
+                    'dias_trabajados' => 0
+                ];
+            }
+            if ($a['horas_trabajadas']) {
+                $resumen[$key]['total_horas'] += (float)$a['horas_trabajadas'];
+                $resumen[$key]['dias_trabajados']++;
+            }
+        }
+        $resumen = array_values($resumen);
+
+        echo json_encode([
+            'asistencias' => $asistencias,
+            'resumen' => $resumen
+        ]);
+    }
 }

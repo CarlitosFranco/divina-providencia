@@ -75,7 +75,6 @@ error_log("=== DEBUG === Resource: '$resource', Method: $method, Path: $path, Se
 // ========== MANEJO ESPECIAL PARA EXPORTAR ==========
 if ($resource === 'exportar') {
     error_log("=== DEBUG EXPORTAR: Recurso detectado");
-    // Permitir token por query string
     $token = $_GET['token'] ?? null;
     if ($token) {
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $token;
@@ -83,16 +82,60 @@ if ($resource === 'exportar') {
     require_once __DIR__ . '/middleware/AuthMiddleware.php';
     Middleware\AuthMiddleware::verificar();
     if ($method !== 'GET') errorResponse(405, 'Método no permitido');
-    // Validar ruta: /exportar/paciente/{id}
     if (!isset($segments[1]) || $segments[1] !== 'paciente' || !isset($segments[2])) {
-        error_log("=== DEBUG EXPORTAR: Ruta inválida. segments[1] = " . ($segments[1] ?? 'null') . ", segments[2] = " . ($segments[2] ?? 'null'));
         errorResponse(400, 'Ruta inválida. Use /exportar/paciente/{id}');
     }
-    $id = $segments[2]; // El ID está en el tercer segmento
-    error_log("=== DEBUG EXPORTAR: ID extraído = $id");
+    $id = $segments[2];
     require_once __DIR__ . '/controladores/ExportarControlador.php';
     $exportController = new Controladores\ExportarControlador();
     $exportController->pacientePDF($id);
+    exit;
+}
+
+// ========== MANEJO ESPECIAL PARA ARCHIVOS ==========
+if ($resource === 'archivos') {
+    error_log("=== DEBUG ARCHIVOS: Recurso detectado");
+    $token = $_GET['token'] ?? null;
+    if ($token) {
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $token;
+    }
+    require_once __DIR__ . '/middleware/AuthMiddleware.php';
+    Middleware\AuthMiddleware::verificar();
+    
+    require_once __DIR__ . '/controladores/ArchivoControlador.php';
+    $archivoController = new Controladores\ArchivoControlador();
+    
+    if ($method === 'GET' && isset($segments[1]) && $segments[1] === 'paciente') {
+        $archivoController->listarPorPaciente();
+    }
+    elseif ($method === 'GET' && isset($segments[1]) && $segments[1] === 'descargar' && isset($segments[2])) {
+        $archivoController->descargar($segments[2]);
+    }
+    elseif ($method === 'POST') {
+        $archivoController->subir();
+    }
+    elseif ($method === 'DELETE' && isset($segments[1]) && is_numeric($segments[1])) {
+        $archivoController->eliminar($segments[1]);
+    }
+    else {
+        errorResponse(405, 'Método no permitido para archivos');
+    }
+    exit;
+}
+
+// ========== MANEJO ESPECIAL PARA REPORTE PDF ==========
+if ($resource === 'reporte') {
+    error_log("=== DEBUG REPORTE: Recurso detectado");
+    $token = $_GET['token'] ?? null;
+    if ($token) {
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $token;
+    }
+    require_once __DIR__ . '/middleware/AuthMiddleware.php';
+    Middleware\AuthMiddleware::verificar();
+    if ($method !== 'GET') errorResponse(405, 'Método no permitido');
+    require_once __DIR__ . '/controladores/ReporteControlador.php';
+    $reporteController = new Controladores\ReporteControlador();
+    $reporteController->asistenciasPDF();
     exit;
 }
 
@@ -170,10 +213,15 @@ try {
             errorResponse(405, 'Método no permitido');
         }
     }
-    // ========== LISTADO DE ASISTENCIAS ==========
+    // ========== ASISTENCIAS (listado y reporte) ==========
     elseif ($resource === 'asistencias') {
-        if ($method !== 'GET') errorResponse(405, 'Método no permitido');
-        $controller->listar();
+        if ($method === 'GET' && isset($segments[1]) && $segments[1] === 'reporte') {
+            $controller->reporte();   // método que agregamos en AsistenciaControlador
+        } elseif ($method !== 'GET') {
+            errorResponse(405, 'Método no permitido');
+        } else {
+            $controller->listar();
+        }
     }
     // ========== CRUD ESTÁNDAR PARA EL RESTO ==========
     else {

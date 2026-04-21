@@ -1,6 +1,5 @@
 <template>
   <div v-if="isAuthenticated" class="app-layout">
-    <!-- Sidebar moderno -->
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="logo">
@@ -77,6 +76,15 @@
           </svg>
           <span>Usuarios</span>
         </router-link>
+
+        <!-- Reporte de Asistencias (solo administrador) -->
+        <router-link v-if="rolId === 1" to="/reporte-asistencias" class="nav-item" active-class="active">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          <span>Reporte Asistencias</span>
+        </router-link>
       </nav>
 
       <div class="sidebar-footer">
@@ -128,11 +136,14 @@ onMounted(() => {
     try {
       usuario.value = JSON.parse(userStr)
       rolId.value = usuario.value.rol_id
-      personalIdGlobal.value = usuario.value.personal_id || null
+      personalIdGlobal.value = usuario.value.personal_id || localStorage.getItem('personal_id') || null
+      console.log('personal_id desde localStorage:', localStorage.getItem('personal_id')); // Para depurar
     } catch (error) {
       console.error(error)
       logout()
     }
+  } else {
+    personalIdGlobal.value = localStorage.getItem('personal_id') || null
   }
 })
 
@@ -192,6 +203,7 @@ const logout = () => {
   router.push('/login')
 }
 </script>
+
 
 <style>
 /* ESTILOS GLOBALES MEJORADOS */
