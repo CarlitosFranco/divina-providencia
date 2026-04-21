@@ -2,7 +2,10 @@
   <div class="container">
     <div class="header">
       <h1>Detalles del Paciente</h1>
-      <button @click="$router.push('/')" class="btn-back">Volver</button>
+      <div class="header-buttons">
+        <button @click="exportarPDF" class="btn-pdf">📄 Exportar PDF</button>
+        <button @click="$router.push('/')" class="btn-back">Volver</button>
+      </div>
     </div>
 
     <!-- Estado de carga -->
@@ -39,7 +42,7 @@
         <div><strong>Observaciones:</strong> {{ paciente.observaciones || 'Ninguna' }}</div>
       </div>
 
-      <!-- Pestaña: Historial Médico (con acciones CRUD) -->
+      <!-- Pestaña: Historial Médico -->
       <div v-if="activeTab === 'medical'">
         <div class="medical-header">
           <button @click="abrirFormularioHistorial()" class="btn-add-medical">+ Agregar Historial</button>
@@ -88,8 +91,6 @@ const activeTab = ref('info')
 const cargando = ref(true)
 const error = ref(false)
 const errorMessage = ref('')
-
-// Estado para el modal de historial
 const mostrarFormHistorial = ref(false)
 const historialSeleccionado = ref(null)
 
@@ -121,7 +122,6 @@ const cargarDatos = async () => {
   }
 }
 
-// Recargar solo el historial (sin recargar todo el paciente)
 const recargarHistorial = async () => {
   const id = route.params.id
   try {
@@ -135,13 +135,11 @@ const recargarHistorial = async () => {
   }
 }
 
-// Abrir formulario para nuevo historial
 const abrirFormularioHistorial = () => {
   historialSeleccionado.value = null
   mostrarFormHistorial.value = true
 }
 
-// Abrir formulario para editar historial
 const editarHistorial = (item) => {
   historialSeleccionado.value = item
   mostrarFormHistorial.value = true
@@ -152,7 +150,6 @@ const cerrarFormularioHistorial = () => {
   historialSeleccionado.value = null
 }
 
-// Eliminar historial
 const eliminarHistorial = async (idHistorial) => {
   if (!confirm('¿Eliminar este registro de historial médico?')) return
   try {
@@ -167,6 +164,37 @@ const eliminarHistorial = async (idHistorial) => {
   }
 }
 
+// ========== EXPORTAR A PDF (con fetch y token en header) ==========
+const exportarPDF = async () => {
+  const id = route.params.id
+  const token = localStorage.getItem('token')
+  if (!token) {
+    alert('No hay sesión activa. Inicia sesión nuevamente.')
+    return
+  }
+  try {
+    const response = await fetch(`/api/exportar/paciente/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Error al generar PDF')
+    }
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `paciente_${id}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error(err)
+    alert('Error al generar el PDF: ' + err.message)
+  }
+}
+
 onMounted(() => {
   cargarDatos()
 })
@@ -176,7 +204,10 @@ onMounted(() => {
 /* Estilos base (mantenemos los existentes) */
 .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.header-buttons { display: flex; gap: 12px; }
 .btn-back { background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+.btn-pdf { background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+.btn-pdf:hover { background: #c82333; transform: scale(1.02); }
 .tabs { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
 .tabs button { background: none; border: none; padding: 10px 15px; cursor: pointer; font-size: 1rem; }
 .tabs button.active { border-bottom: 2px solid #42b983; color: #42b983; font-weight: bold; }
@@ -188,7 +219,7 @@ onMounted(() => {
 @keyframes spin { to { transform: rotate(360deg); } }
 .btn-retry { margin-top: 16px; background: #667eea; color: white; border: none; padding: 8px 20px; border-radius: 40px; cursor: pointer; }
 
-/* Nuevos estilos para el CRUD de historial */
+/* Estilos para el CRUD de historial */
 .medical-header { display: flex; justify-content: flex-end; margin-bottom: 20px; }
 .btn-add-medical { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 8px 20px; border-radius: 40px; cursor: pointer; font-weight: 500; transition: all 0.2s; }
 .btn-add-medical:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102,126,234,0.3); }

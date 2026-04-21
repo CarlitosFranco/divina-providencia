@@ -28,7 +28,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// ========== FUNCIÓN DE ERROR ==========
 function errorResponse($code, $message, $details = null) {
     http_response_code($code);
     $response = ['error' => $message];
@@ -37,7 +36,6 @@ function errorResponse($code, $message, $details = null) {
     exit;
 }
 
-// ========== FUNCIÓN AUXILIAR CRUD (definida antes de usarla) ==========
 function ejecutarCRUD($controller, $method, $id) {
     switch ($method) {
         case 'GET':
@@ -70,10 +68,33 @@ $path = preg_replace('#^(divina-providencia/)?backend/#', '', $path);
 
 $segments = explode('/', $path);
 $resource = $segments[0] ?? '';
-$id = $segments[1] ?? null;
 $method = $_SERVER['REQUEST_METHOD'];
 
-error_log("=== DEBUG === Resource: '$resource', Method: $method, Path: $path");
+error_log("=== DEBUG === Resource: '$resource', Method: $method, Path: $path, Segments: " . print_r($segments, true));
+
+// ========== MANEJO ESPECIAL PARA EXPORTAR ==========
+if ($resource === 'exportar') {
+    error_log("=== DEBUG EXPORTAR: Recurso detectado");
+    // Permitir token por query string
+    $token = $_GET['token'] ?? null;
+    if ($token) {
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $token;
+    }
+    require_once __DIR__ . '/middleware/AuthMiddleware.php';
+    Middleware\AuthMiddleware::verificar();
+    if ($method !== 'GET') errorResponse(405, 'Método no permitido');
+    // Validar ruta: /exportar/paciente/{id}
+    if (!isset($segments[1]) || $segments[1] !== 'paciente' || !isset($segments[2])) {
+        error_log("=== DEBUG EXPORTAR: Ruta inválida. segments[1] = " . ($segments[1] ?? 'null') . ", segments[2] = " . ($segments[2] ?? 'null'));
+        errorResponse(400, 'Ruta inválida. Use /exportar/paciente/{id}');
+    }
+    $id = $segments[2]; // El ID está en el tercer segmento
+    error_log("=== DEBUG EXPORTAR: ID extraído = $id");
+    require_once __DIR__ . '/controladores/ExportarControlador.php';
+    $exportController = new Controladores\ExportarControlador();
+    $exportController->pacientePDF($id);
+    exit;
+}
 
 // ========== MAPEO DE CONTROLADORES ==========
 $controllerMap = [
@@ -92,12 +113,10 @@ $controllerMap = [
 ];
 
 try {
-    // Verificar si el recurso existe
     if (!isset($controllerMap[$resource])) {
         errorResponse(404, 'Recurso no encontrado', ['resource' => $resource]);
     }
 
-    // Cargar controlador
     $controllerClass = $controllerMap[$resource];
     $controllerFile = __DIR__ . "/controladores/{$controllerClass}.php";
     if (!file_exists($controllerFile)) {
@@ -118,8 +137,9 @@ try {
     require_once __DIR__ . '/middleware/AuthMiddleware.php';
     $usuario = Middleware\AuthMiddleware::verificar();
 
-    // ========== RUTAS ESPECIALES (antes del CRUD) ==========
+    // ========== RUTAS ESPECIALES ==========
     if ($resource === 'pacientes' && $method === 'GET' && isset($segments[2]) && $segments[2] === 'completo') {
+        $id = $segments[1] ?? null;
         $controller->obtenerCompleto($id);
     }
     elseif ($resource === 'turnos' && $method === 'GET' && isset($segments[1]) && $segments[1] === 'personal') {
@@ -130,12 +150,12 @@ try {
     // ========== TURNOS (solo administrador) ==========
     elseif ($resource === 'turnos') {
         if ($usuario['rol_id'] != 1) errorResponse(403, 'No tienes permiso para acceder a turnos');
-        ejecutarCRUD($controller, $method, $id);
+        ejecutarCRUD($controller, $method, $segments[1] ?? null);
     }
     // ========== USUARIOS (solo administrador) ==========
     elseif ($resource === 'usuarios') {
         if ($usuario['rol_id'] != 1) errorResponse(403, 'No tienes permiso para acceder a usuarios');
-        ejecutarCRUD($controller, $method, $id);
+        ejecutarCRUD($controller, $method, $segments[1] ?? null);
     }
     // ========== ASISTENCIA (marcación individual) ==========
     elseif ($resource === 'asistencia') {
@@ -157,6 +177,7 @@ try {
     }
     // ========== CRUD ESTÁNDAR PARA EL RESTO ==========
     else {
+        $id = $segments[1] ?? null;
         ejecutarCRUD($controller, $method, $id);
     }
 } catch (Throwable $e) {
