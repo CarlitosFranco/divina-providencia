@@ -11,6 +11,7 @@ import UsuariosView from '../views/UsuariosView.vue'
 import AsistenciasView from '../views/AsistenciasView.vue'
 import DietasView from '../views/DietasView.vue'
 import ReporteAsistenciasView from '../views/ReporteAsistenciasView.vue'
+import DashboardView from '../views/DashboardView.vue'
 
 const routes = [
   {
@@ -84,6 +85,12 @@ const routes = [
     name: 'not-found',
     component: NotFoundView,
     meta: { requiresAuth: false }
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: DashboardView,
+    meta: { requiresAuth: true, roles: [1] } // opcional, solo admin
   }
 ]
 

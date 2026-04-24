@@ -152,7 +152,8 @@ $controllerMap = [
     'usuarios'    => 'UsuarioControlador',
     'asistencia'  => 'AsistenciaControlador',
     'asistencias' => 'AsistenciaControlador',
-    'dietas'      => 'DietaControlador'
+    'dietas'      => 'DietaControlador',
+    'dashboard'   => 'DashboardControlador'   // 👈 Nuevo recurso para estadísticas
 ];
 
 try {
@@ -190,6 +191,22 @@ try {
         if (!$personalId) errorResponse(400, 'ID de personal requerido');
         $controller->listarPorPersonal($personalId);
     }
+    // ========== DASHBOARD (estadísticas para gráficos) ==========
+    elseif ($resource === 'dashboard') {
+        if ($method !== 'GET') errorResponse(405, 'Método no permitido');
+        $sub = $segments[1] ?? '';
+        if ($sub === 'resumen') {
+            $controller->resumen();
+        } elseif ($sub === 'pacientes-estado') {
+            $controller->pacientesEstado();
+        } elseif ($sub === 'asistencias-mes') {
+            $controller->asistenciasMes();
+        } elseif ($sub === 'turnos-tipo') {
+            $controller->turnosPorTipo();
+        } else {
+            errorResponse(404, 'Ruta de dashboard no encontrada');
+        }
+    }
     // ========== TURNOS (solo administrador) ==========
     elseif ($resource === 'turnos') {
         if ($usuario['rol_id'] != 1) errorResponse(403, 'No tienes permiso para acceder a turnos');
@@ -216,7 +233,7 @@ try {
     // ========== ASISTENCIAS (listado y reporte) ==========
     elseif ($resource === 'asistencias') {
         if ($method === 'GET' && isset($segments[1]) && $segments[1] === 'reporte') {
-            $controller->reporte();   // método que agregamos en AsistenciaControlador
+            $controller->reporte();
         } elseif ($method !== 'GET') {
             errorResponse(405, 'Método no permitido');
         } else {
