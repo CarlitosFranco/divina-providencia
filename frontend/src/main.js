@@ -23,3 +23,5 @@ app.config.globalProperties.$axios = axios
 
 app.use(router)
 app.mount('#app')
+
+console.log('API_BASE:', import.meta.env.VITE_API_URL);
