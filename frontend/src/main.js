@@ -10,11 +10,11 @@ if (API_BASE) {
     axios.defaults.baseURL = API_BASE
 }
 
-// Interceptor para transformar /api/... a /index.php?route=...
+// Interceptor para transformar /api/... a /proxy.php?route=...
 axios.interceptors.request.use(config => {
     if (API_BASE && config.url && config.url.startsWith('/api/')) {
         const route = config.url.slice(5) // quita '/api/'
-        config.url = `/index.php?route=${route}`
+        config.url = `/proxy.php?route=${route}`
     }
     return config
 })
