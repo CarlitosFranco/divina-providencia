@@ -87,7 +87,8 @@ const login = async () => {
   error.value = ''
 
   try {
-    const response = await axios.post('http://localhost/divina-providencia/backend/login', {
+    // ✅ Usamos ruta relativa. La URL base se configura en main.js (axios.defaults.baseURL)
+    const response = await axios.post('/api/login', {
       email: email.value,
       password: password.value
     })
@@ -96,7 +97,7 @@ const login = async () => {
     localStorage.setItem('token', token)
     localStorage.setItem('usuario', JSON.stringify(usuario))
     localStorage.setItem('rol_id', usuario.rol_id)
-    localStorage.setItem('personal_id', usuario.personal_id || '')   // 👈 CRUCIAL
+    localStorage.setItem('personal_id', usuario.personal_id || '')
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     router.push('/')
   } catch (err) {

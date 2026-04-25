@@ -3,25 +3,25 @@ import App from './App.vue'
 import router from './router'
 import axios from 'axios'
 
-// Configurar axios globalmente
-const token = localStorage.getItem('token')
-if (token) {
-  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+// Tomar la URL base de la variable de entorno o vacío en desarrollo
+const API_BASE = import.meta.env.VITE_API_URL || ''
+
+if (API_BASE) {
+    axios.defaults.baseURL = API_BASE
 }
 
+// Interceptor para transformar /api/... a /index.php?route=...
 axios.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
+    if (API_BASE && config.url && config.url.startsWith('/api/')) {
+        const route = config.url.slice(5) // quita '/api/'
+        config.url = `/index.php?route=${route}`
+    }
+    return config
 })
 
-// Hacer axios disponible globalmente (opcional)
+// Opcional: hacer axios global
 const app = createApp(App)
 app.config.globalProperties.$axios = axios
 
 app.use(router)
 app.mount('#app')
-
-console.log('API_BASE:', import.meta.env.VITE_API_URL);
