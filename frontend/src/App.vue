@@ -11,6 +11,7 @@
       </div>
 
       <nav class="sidebar-nav">
+        <!-- Módulos visibles para todos los autenticados -->
         <router-link to="/" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2h-5v-7H9v7H5a2 2 0 0 1-2-2z"/>
@@ -26,6 +27,7 @@
           <span>Personal</span>
         </router-link>
 
+        <!-- Turnos: solo administrador -->
         <router-link v-if="rolId === 1" to="/turnos" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
@@ -34,7 +36,8 @@
           <span>Turnos</span>
         </router-link>
 
-        <router-link to="/dashboard" class="nav-item" active-class="active">
+        <!-- Dashboard: solo administrador -->
+        <router-link v-if="rolId === 1" to="/dashboard" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
             <line x1="3" y1="9" x2="21" y2="9"/>
@@ -45,6 +48,7 @@
           <span>Panel de Control</span>
         </router-link>
 
+        <!-- Actividades: admin y enfermera -->
         <router-link v-if="rolId === 1 || rolId === 3" to="/actividades" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -53,6 +57,7 @@
           <span>Actividades</span>
         </router-link>
 
+        <!-- Citas: admin y enfermera -->
         <router-link v-if="rolId === 1 || rolId === 3" to="/citas" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -63,6 +68,7 @@
           <span>Citas</span>
         </router-link>
 
+        <!-- Asistencias: admin y enfermera -->
         <router-link v-if="rolId === 1 || rolId === 3" to="/asistencias" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -73,6 +79,7 @@
           <span>Asistencias</span>
         </router-link>
 
+        <!-- Dietas: todos -->
         <router-link to="/dietas" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm0 13c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z" fill="currentColor"/>
@@ -80,6 +87,7 @@
           <span>Dietas</span>
         </router-link>
 
+        <!-- Usuarios: solo administrador -->
         <router-link v-if="rolId === 1" to="/usuarios" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -88,7 +96,7 @@
           <span>Usuarios</span>
         </router-link>
 
-        <!-- Reporte de Asistencias (solo administrador) -->
+        <!-- Reporte Asistencias: solo administrador -->
         <router-link v-if="rolId === 1" to="/reporte-asistencias" class="nav-item" active-class="active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -148,7 +156,6 @@ onMounted(() => {
       usuario.value = JSON.parse(userStr)
       rolId.value = usuario.value.rol_id
       personalIdGlobal.value = usuario.value.personal_id || localStorage.getItem('personal_id') || null
-      console.log('personal_id desde localStorage:', localStorage.getItem('personal_id')); // Para depurar
     } catch (error) {
       console.error(error)
       logout()
@@ -215,9 +222,8 @@ const logout = () => {
 }
 </script>
 
-
 <style>
-/* ESTILOS GLOBALES MEJORADOS */
+/* ESTILOS GLOBALES (sin cambios) */
 * {
   margin: 0;
   padding: 0;
@@ -229,13 +235,11 @@ body {
   background: #f4f7fc;
 }
 
-/* Layout principal */
 .app-layout {
   display: flex;
   min-height: 100vh;
 }
 
-/* Sidebar moderno */
 .sidebar {
   width: 280px;
   background: linear-gradient(180deg, #1e2b3c 0%, #0f1a24 100%);
@@ -353,7 +357,6 @@ body {
   color: #94a3b8;
 }
 
-/* Contenido principal */
 .main-content {
   flex: 1;
   margin-left: 280px;
@@ -362,7 +365,6 @@ body {
   min-height: 100vh;
 }
 
-/* Botón flotante moderno */
 .btn-flotante {
   position: fixed;
   bottom: 30px;
@@ -385,7 +387,6 @@ body {
   box-shadow: 0 8px 20px rgba(102,126,234,0.4);
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .sidebar {
     width: 80px;
@@ -408,7 +409,6 @@ body {
   }
 }
 
-/* Ajustes para tarjetas y tablas (puedes agregarlos en cada vista) */
 .card {
   background: white;
   border-radius: 24px;

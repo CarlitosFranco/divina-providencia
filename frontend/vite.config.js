@@ -1,6 +1,6 @@
-import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [vue()],
@@ -14,10 +14,18 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost/divina-providencia/backend',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-        configure: (proxy, options) => {
+        rewrite: (path) => {
+          // Separar la ruta base de los parámetros de consulta (ej. /api/asistencia?fecha=...)
+          const [base, query] = path.split('?');
+          // Eliminar el prefijo /api/
+          const route = base.replace(/^\/api\//, '');
+          // Construir la nueva URL: index.php?route=...&parametros
+          let newPath = `/index.php?route=${route}`;
+          if (query) newPath += `&${query}`;
+          return newPath;
+        },
+        configure: (proxy) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            // Reenviar el header Authorization si existe
             if (req.headers.authorization) {
               proxyReq.setHeader('Authorization', req.headers.authorization);
             }

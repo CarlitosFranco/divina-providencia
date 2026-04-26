@@ -2,10 +2,10 @@
 namespace Config;
 
 class Database {
-    private $host = 'sql304.infinityfree.com';
-    private $dbname = 'if0_41747233_divina_providencia';
-    private $user = 'if0_41747233';
-    private $pass = 'DsFUKA57yxfw3P';   // Cámbiala después por seguridad
+    private $host = 'localhost';
+    private $dbname = 'divina_providencia';
+    private $user = 'root';
+    private $pass = '';
     private $charset = 'utf8mb4';
 
     public function getConnection() {

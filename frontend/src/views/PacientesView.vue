@@ -59,7 +59,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import PacienteForm from '@/components/PacienteForm.vue'
+import PacienteForm from '../components/PacienteForm.vue'
 import Swal from 'sweetalert2'
 
 // Estados

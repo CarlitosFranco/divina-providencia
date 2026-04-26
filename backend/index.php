@@ -12,12 +12,10 @@ if (file_exists(__DIR__ . '/../.env')) {
     $dotenv->load();
 }
 
-// ========== CLAVE JWT ==========
 if (!defined('JWT_SECRET')) {
     define('JWT_SECRET', 'tu_clave_super_secreta_y_larga_de_al_menos_32_caracteres_123456');
 }
 
-// ========== CORS ==========
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
@@ -58,23 +56,15 @@ function ejecutarCRUD($controller, $method, $id) {
     }
 }
 
-// ========== EXTRACCIÓN DE RUTA ==========
-$request_uri = $_SERVER['REQUEST_URI'];
-$script_name = $_SERVER['SCRIPT_NAME'];
-$path = str_replace($script_name, '', $request_uri);
-$path = strtok($path, '?');
-$path = trim($path, '/');
-$path = preg_replace('#^(divina-providencia/)?backend/#', '', $path);
-
-$segments = explode('/', $path);
+// ========== EXTRACCIÓN DE RUTA (SOLO DESDE EL PARÁMETRO 'route') ==========
+$route = $_GET['route'] ?? '';
+$segments = explode('/', $route);
 $resource = $segments[0] ?? '';
+$id = $segments[1] ?? null;
 $method = $_SERVER['REQUEST_METHOD'];
-
-error_log("=== DEBUG === Resource: '$resource', Method: $method, Path: $path, Segments: " . print_r($segments, true));
 
 // ========== MANEJO ESPECIAL PARA EXPORTAR ==========
 if ($resource === 'exportar') {
-    error_log("=== DEBUG EXPORTAR: Recurso detectado");
     $token = $_GET['token'] ?? null;
     if ($token) {
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $token;
@@ -94,30 +84,24 @@ if ($resource === 'exportar') {
 
 // ========== MANEJO ESPECIAL PARA ARCHIVOS ==========
 if ($resource === 'archivos') {
-    error_log("=== DEBUG ARCHIVOS: Recurso detectado");
     $token = $_GET['token'] ?? null;
     if ($token) {
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $token;
     }
     require_once __DIR__ . '/middleware/AuthMiddleware.php';
     Middleware\AuthMiddleware::verificar();
-    
     require_once __DIR__ . '/controladores/ArchivoControlador.php';
     $archivoController = new Controladores\ArchivoControlador();
-    
-    if ($method === 'GET' && isset($segments[1]) && $segments[1] === 'paciente') {
+    $sub = $segments[1] ?? '';
+    if ($method === 'GET' && $sub === 'paciente') {
         $archivoController->listarPorPaciente();
-    }
-    elseif ($method === 'GET' && isset($segments[1]) && $segments[1] === 'descargar' && isset($segments[2])) {
+    } elseif ($method === 'GET' && $sub === 'descargar' && isset($segments[2])) {
         $archivoController->descargar($segments[2]);
-    }
-    elseif ($method === 'POST') {
+    } elseif ($method === 'POST') {
         $archivoController->subir();
-    }
-    elseif ($method === 'DELETE' && isset($segments[1]) && is_numeric($segments[1])) {
-        $archivoController->eliminar($segments[1]);
-    }
-    else {
+    } elseif ($method === 'DELETE' && is_numeric($sub)) {
+        $archivoController->eliminar($sub);
+    } else {
         errorResponse(405, 'Método no permitido para archivos');
     }
     exit;
@@ -125,7 +109,6 @@ if ($resource === 'archivos') {
 
 // ========== MANEJO ESPECIAL PARA REPORTE PDF ==========
 if ($resource === 'reporte') {
-    error_log("=== DEBUG REPORTE: Recurso detectado");
     $token = $_GET['token'] ?? null;
     if ($token) {
         $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $token;
@@ -153,7 +136,7 @@ $controllerMap = [
     'asistencia'  => 'AsistenciaControlador',
     'asistencias' => 'AsistenciaControlador',
     'dietas'      => 'DietaControlador',
-    'dashboard'   => 'DashboardControlador'   // 👈 Nuevo recurso para estadísticas
+    'dashboard'   => 'DashboardControlador'
 ];
 
 try {
@@ -170,55 +153,39 @@ try {
     $fullClassName = "Controladores\\$controllerClass";
     $controller = new $fullClassName();
 
-    // ========== LOGIN (público) ==========
+    // Login público
     if ($resource === 'login') {
         if ($method !== 'POST') errorResponse(405, 'Método no permitido. Use POST.');
         $controller->login();
         exit;
     }
 
-    // ========== RECURSOS PROTEGIDOS ==========
+    // Recursos protegidos
     require_once __DIR__ . '/middleware/AuthMiddleware.php';
     $usuario = Middleware\AuthMiddleware::verificar();
 
-    // ========== RUTAS ESPECIALES ==========
+    // Rutas especiales
     if ($resource === 'pacientes' && $method === 'GET' && isset($segments[2]) && $segments[2] === 'completo') {
-        $id = $segments[1] ?? null;
         $controller->obtenerCompleto($id);
-    }
-    elseif ($resource === 'turnos' && $method === 'GET' && isset($segments[1]) && $segments[1] === 'personal') {
+    } elseif ($resource === 'turnos' && $method === 'GET' && isset($segments[1]) && $segments[1] === 'personal') {
         $personalId = $segments[2] ?? null;
         if (!$personalId) errorResponse(400, 'ID de personal requerido');
         $controller->listarPorPersonal($personalId);
-    }
-    // ========== DASHBOARD (estadísticas para gráficos) ==========
-    elseif ($resource === 'dashboard') {
+    } elseif ($resource === 'dashboard') {
         if ($method !== 'GET') errorResponse(405, 'Método no permitido');
         $sub = $segments[1] ?? '';
-        if ($sub === 'resumen') {
-            $controller->resumen();
-        } elseif ($sub === 'pacientes-estado') {
-            $controller->pacientesEstado();
-        } elseif ($sub === 'asistencias-mes') {
-            $controller->asistenciasMes();
-        } elseif ($sub === 'turnos-tipo') {
-            $controller->turnosPorTipo();
-        } else {
-            errorResponse(404, 'Ruta de dashboard no encontrada');
-        }
-    }
-    // ========== TURNOS (solo administrador) ==========
-    elseif ($resource === 'turnos') {
+        if ($sub === 'resumen') $controller->resumen();
+        elseif ($sub === 'pacientes-estado') $controller->pacientesEstado();
+        elseif ($sub === 'asistencias-mes') $controller->asistenciasMes();
+        elseif ($sub === 'turnos-tipo') $controller->turnosPorTipo();
+        else errorResponse(404, 'Ruta de dashboard no encontrada');
+    } elseif ($resource === 'turnos') {
         if ($usuario['rol_id'] != 1) errorResponse(403, 'No tienes permiso para acceder a turnos');
-        ejecutarCRUD($controller, $method, $segments[1] ?? null);
-    }
-    // ========== USUARIOS (solo administrador) ==========
-    elseif ($resource === 'usuarios') {
+        ejecutarCRUD($controller, $method, $id);
+    } elseif ($resource === 'usuarios') {
         if ($usuario['rol_id'] != 1) errorResponse(403, 'No tienes permiso para acceder a usuarios');
-        ejecutarCRUD($controller, $method, $segments[1] ?? null);
-    }
-    // ========== ASISTENCIA (marcación individual) ==========
-    elseif ($resource === 'asistencia') {
+        ejecutarCRUD($controller, $method, $id);
+    } elseif ($resource === 'asistencia') {
         if ($method === 'POST') {
             $sub = $segments[1] ?? '';
             if ($sub === 'entrada') $controller->registrarEntrada();
@@ -229,9 +196,7 @@ try {
         } else {
             errorResponse(405, 'Método no permitido');
         }
-    }
-    // ========== ASISTENCIAS (listado y reporte) ==========
-    elseif ($resource === 'asistencias') {
+    } elseif ($resource === 'asistencias') {
         if ($method === 'GET' && isset($segments[1]) && $segments[1] === 'reporte') {
             $controller->reporte();
         } elseif ($method !== 'GET') {
@@ -239,10 +204,7 @@ try {
         } else {
             $controller->listar();
         }
-    }
-    // ========== CRUD ESTÁNDAR PARA EL RESTO ==========
-    else {
-        $id = $segments[1] ?? null;
+    } else {
         ejecutarCRUD($controller, $method, $id);
     }
 } catch (Throwable $e) {

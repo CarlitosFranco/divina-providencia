@@ -2,8 +2,6 @@
 namespace Controladores;
 
 use Modelos\Usuario;
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
 
 class AuthControlador {
     private $usuarioModel;
@@ -31,18 +29,8 @@ class AuthControlador {
             return;
         }
 
-        // Incluir personal_id en el payload
-        $payload = [
-            'id' => $usuario['id'],
-            'email' => $usuario['email'],
-            'nombre' => $usuario['nombre'],
-            'rol_id' => $usuario['rol_id'],
-            'personal_id' => $usuario['personal_id'] ?? null,
-            'exp' => time() + (60 * 60 * 24)
-        ];
-
-        $jwtSecret = JWT_SECRET;
-        $token = JWT::encode($payload, $jwtSecret, 'HS256');
+        // Token simple (sin JWT)
+        $token = bin2hex(random_bytes(32));
 
         echo json_encode([
             'token' => $token,
